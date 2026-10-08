@@ -1,0 +1,28 @@
+# puppie_main.py / logger.py が実際に使用しているパッケージのみ記載。
+# バージョンは開発機(Mac, Python 3.12)で動作確認済みのもの。
+#
+# 実機のPi Zero 2Wは64-bit版OS (aarch64, uname -mで確認済み) で稼働。
+# Python 3.11(cp311) + aarch64向けのwheel互換性を確認済み:
+#   - PyPI公式にwheelがあるもの: pygame, boto3, openai, python-dotenv（ほぼ全部）
+#   - wheelが無く、ソースビルドが必要なもの: pyaudio, webrtcvad
+#     （Pi側で事前に `sudo apt install -y portaudio19-dev python3-dev build-essential` が必要。
+#     小さいCコードなのでPi Zeroでも数分でビルドできる見込み）
+
+# --- 環境変数 / 設定 ---
+python-dotenv==1.2.2
+
+# webrtcvad (pkg_resources) 用。setuptools>=81でpkg_resourcesが削除されているため固定
+setuptools<81
+
+# --- AWS (Polly) ---
+boto3==1.43.42
+
+# --- OpenAI (Chat / Speech-to-Text) ---
+openai==2.44.0
+
+# --- 音声入出力・VAD ---
+pyaudio==0.2.14
+webrtcvad==2.0.10
+
+# --- 音声再生 ---
+pygame==2.6.1

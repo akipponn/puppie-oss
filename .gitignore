@@ -1,0 +1,35 @@
+# 鍵などコードに書きたくない環境依存の情報
+.env
+google-service-account.json
+
+# Python関連
+__pycache__/
+*.pyc
+
+# 仮想環境
+env/
+venv/
+.venv/
+
+# エディタの設定ファイル
+.vscode/
+.DS_Store
+
+# テストコード（実キーを含むため常に除外）
+TestCodes/
+
+# 音声・キャッシュ
+Voices/
+.polly_cache/
+*.mp3
+
+# 分析用に残している一発目の録音
+debug_first/
+
+# KIKOの記憶（個人的な内容なので公開しない）
+kiko_memory.txt
+kiko_memory.txt.tmp
+
+# 会話ログと返答の音声（個人的な内容なので公開しない）
+log_puppie_conversation.csv
+reply.wav
