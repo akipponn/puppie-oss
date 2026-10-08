@@ -1,0 +1,9 @@
+[Unit]
+Description=Puppie Wi-Fi watchdog (auto-reconnect / AP fallback)
+After=NetworkManager.service
+Wants=NetworkManager.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/puppie-wifi-watchdog.sh
+SyslogIdentifier=puppie-wifi-watchdog

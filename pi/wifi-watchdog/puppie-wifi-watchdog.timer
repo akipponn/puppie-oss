@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Puppie Wi-Fi watchdog periodically
+
+[Timer]
+OnBootSec=1min30s
+OnUnitActiveSec=1min30s
+AccuracySec=10s
+
+[Install]
+WantedBy=timers.target
