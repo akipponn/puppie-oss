@@ -18,8 +18,9 @@ venv/
 # テストコード（実キーを含むため常に除外）
 TestCodes/
 
-# 音声・キャッシュ
-Voices/
+# 音声・キャッシュ（起動に必要な vicky_*.wav の4つだけはリポジトリに入れる）
+Voices/*
+!Voices/vicky_*.wav
 .polly_cache/
 *.mp3
 
