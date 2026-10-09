@@ -17,6 +17,40 @@ dtparam=i2s=on
 dtoverlay=max98357a
 ```
 
+## 電源を入れたら見張りを自動で起動 `watcher/`
+
+Piの電源が入ると、見張りプログラム `puppie_watcher.py` が自動で立ち上がり、タッチ待ちになります。
+見張りが落ちたときは5秒後に起動し直します。
+
+| ファイル | 置き場所 |
+|---|---|
+| `puppie-watcher.service` | `/etc/systemd/system/` |
+
+入れる手順:
+
+1. `puppie-watcher.service` の `YOUR-USER-NAME`(2か所)を、Piのユーザー名に書き換える
+2. 有効にする
+
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now puppie-watcher.service
+   ```
+
+止める・動かす・様子を見る:
+
+```bash
+sudo systemctl stop puppie-watcher.service
+sudo systemctl start puppie-watcher.service
+journalctl -u puppie-watcher.service -f
+```
+
+自動起動をやめるときは `sudo systemctl disable --now puppie-watcher.service` です。
+
+自動で動いている間に `python3 puppie_watcher.py` を手で起動すると、タッチセンサーやLEDを取り合ってうまく動きません。
+手で動かしたいときは、先に `stop` してください。
+
+Piに入れて再起動し、見張りが自動で立ち上がってタッチ待ちになるところまで確かめてあります(2026-10-09)。
+
 ## Wi-Fiが切れたときの非常口 `wifi-watchdog/`
 
 ふだんのWi-Fiにつながらない状態が続くと、Pi自身がWi-Fiの親機 `Puppie-Setup` になります。

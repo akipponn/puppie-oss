@@ -1,0 +1,15 @@
+[Unit]
+Description=Puppie watcher (touch sensor / LED / starts puppie_main.py)
+After=network-online.target sound.target
+Wants=network-online.target
+
+[Service]
+User=YOUR-USER-NAME
+WorkingDirectory=/home/YOUR-USER-NAME/puppie
+ExecStart=/usr/bin/python3 -u puppie_watcher.py
+Restart=always
+RestartSec=5
+SyslogIdentifier=puppie-watcher
+
+[Install]
+WantedBy=multi-user.target
