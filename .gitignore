@@ -34,3 +34,6 @@ kiko_memory.txt.tmp
 # 会話ログと返答の音声（個人的な内容なので公開しない）
 log_puppie_conversation.csv
 reply.wav
+
+# 部品のほしい物リスト（個人的な買い物メモなので公開しない）
+parts_wishlist.md
