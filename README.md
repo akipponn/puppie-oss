@@ -52,7 +52,7 @@ TODO: what Puppie stores (memory, conversation logs) and what it sends to extern
 
 ## Partner
 
-<!-- TODO: add the "Sachsen 1100 – So geht sächsisch." logo here, unchanged, from the logo package -->
+<a href="https://www.sachsen1100.de"><img src="assets/sachsen1100-so-geht-saechsisch_gruen.png" alt="Sachsen 1100 – So geht sächsisch." width="160"></a>
 
 Puppie is a prize winner of "Zeig Dein Sachsen", the participation competition of the Free State of Saxony's campaign "So geht sächsisch." for the anniversary "1100 Jahre Sachsen", and is being realised as a partner project of the campaign.
 
@@ -60,6 +60,10 @@ Puppie is a prize winner of "Zeig Dein Sachsen", the participation competition o
 - [www.sachsen1100.de](https://www.sachsen1100.de)
 
 The "Sachsen 1100 – So geht sächsisch." logo is a protected trademark of the Free State of Saxony and is not covered by this project's open-source license.
+
+## Acknowledgements
+
+Puppie exists because Bona Mondo UG made its first development possible as part of the KIKO project, and hosts this repository. Thank you.
 
 TODO: KIKO was supported by ...
 
