@@ -1,42 +1,42 @@
-# 鍵などコードに書きたくない環境依存の情報
+# Keys and other machine-specific settings that must not be in the code
 .env
 google-service-account.json
 
-# Python関連
+# Python
 __pycache__/
 *.pyc
 
-# 仮想環境
+# Virtual environments
 env/
 venv/
 .venv/
 
-# エディタの設定ファイル
+# Editor settings
 .vscode/
 .DS_Store
 
-# テストコード（実キーを含むため常に除外）
+# Test code (always excluded because it contains real keys)
 TestCodes/
 
-# 音声・キャッシュ（起動に必要な vicky_*.wav の4つだけはリポジトリに入れる）
+# Audio and caches (only the four vicky_*.wav files needed at startup are in the repo)
 Voices/*
 !Voices/vicky_*.wav
 .polly_cache/
 *.mp3
 
-# 分析用に残している一発目の録音
+# Recordings of the first utterance, kept for analysis
 debug_first/
 
-# KIKOの記憶（個人的な内容なので公開しない）
+# KIKO's memory (personal content, not published)
 kiko_memory.txt
 kiko_memory.txt.tmp
 
-# 会話ログと返答の音声（個人的な内容なので公開しない）
+# Conversation log and reply audio (personal content, not published)
 log_puppie_conversation.csv
 reply.wav
 
-# 部品のほしい物リスト（個人的な買い物メモなので公開しない）
+# Parts wishlist (a personal shopping note, not published)
 parts_wishlist.md
 
-# Sachsen 1100のロゴパッケージ一式（公開するのはassets/に置いた1つだけ）
+# The full Sachsen 1100 logo package (only the two logos in assets/ are published)
 Logopaket_SGS_1100_Zeig-Dein-Sachsen/
