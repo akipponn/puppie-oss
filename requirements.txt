@@ -1,12 +1,12 @@
 # Only the packages that puppie_main.py / logger.py actually use.
-# The versions are the ones tested on the development machine (Mac, Python 3.12).
+# The versions are the ones tested on the development machine (Mac, Python 3.12)
+# and running on the Raspberry Pi Zero 2 W (checked 2026-10-12):
+#   Raspberry Pi OS Lite 64-bit (Debian 13 "trixie", aarch64), Python 3.13.5
 #
-# The Pi Zero 2 W runs the 64-bit OS (aarch64, checked with uname -m).
-# Wheel compatibility was checked for Python 3.11 (cp311) on aarch64:
 #   - Wheels available on PyPI: pygame, boto3, openai, python-dotenv (almost everything)
 #   - No wheel, built from source: pyaudio, webrtcvad
 #     (Run `sudo apt install -y portaudio19-dev python3-dev build-essential` on the Pi first.
-#     The C code is small, so the build should take only a few minutes even on a Pi Zero.)
+#     The C code is small, so the build takes only a few minutes even on a Pi Zero.)
 
 # --- Environment variables / settings ---
 python-dotenv==1.2.2
