@@ -52,7 +52,9 @@ TODO: what Puppie stores (memory, conversation logs) and what it sends to extern
 
 ## Partner
 
-<a href="https://www.sachsen1100.de"><img src="assets/sachsen1100-so-geht-saechsisch_gruen.png" alt="Sachsen 1100 – So geht sächsisch." width="160"></a>
+<a href="https://www.sachsen1100.de"><img src="assets/sachsen1100-so-geht-saechsisch_gruen.png" alt="Sachsen 1100 – So geht sächsisch." height="110"></a>
+&nbsp;&nbsp;&nbsp;
+<a href="https://www.so-geht-sächsisch.de"><img src="assets/sachsen1100-zeig-dein-sachsen_gruen.png" alt="1100 – Zeig Dein Sachsen" height="110"></a>
 
 Puppie is a prize winner of "Zeig Dein Sachsen", the participation competition of the Free State of Saxony's campaign "So geht sächsisch." for the anniversary "1100 Jahre Sachsen", and is being realised as a partner project of the campaign.
 
