@@ -1,6 +1,6 @@
 # Raspberry Pi configuration files
 
-A copy of the settings installed on the Raspberry Pi Zero 2W (64-bit OS) that runs KIKO.
+A copy of the settings installed on the Raspberry Pi Zero 2W (64-bit OS) that runs Puppie.
 The program itself (the `.py` files at the top of this repository) lives in `/home/<user name>/puppie/`.
 
 ## Audio input and output: `asound.conf`

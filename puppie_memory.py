@@ -1,19 +1,19 @@
 """
-KIKOの記憶。会話が終わるたびに、覚えておくことをLLMに短い箇条書きにまとめさせて
-テキストファイルに保存し、次の会話の最初に設定文と一緒にLLMへ渡す。
-忘れさせたいときは MEMORY_FILE を消す（中身を手で直してもよい）。
+Puppie's memory. After each conversation, the LLM sums up what is worth remembering as short bullet points.
+They are saved to a text file and passed to the LLM together with the system prompt at the start of the next conversation.
+To make Puppie forget, delete MEMORY_FILE (you can also edit its contents by hand).
 """
 import datetime
 import os
 
-MEMORY_FILE = "kiko_memory.txt"
+MEMORY_FILE = "puppie_memory.txt"
 MEMORY_MAX_LINES = 30
 MEMORY_TIMEOUT_SEC = 15
 
 WEEKDAYS = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
 
 UPDATE_INSTRUCTIONS = (
-    "Du pflegst das Gedächtnis von KIKO, einem sprechenden Begleiter für ältere Menschen. "
+    "Du pflegst das Gedächtnis eines sprechenden Alltagsbegleiters. "
     "Du bekommst das bisherige Gedächtnis und die Mitschrift eines neuen Gesprächs. "
     "Gib das aktualisierte Gedächtnis zurück: kurze Stichpunkte auf Deutsch, eine Zeile pro Stichpunkt, "
     f"höchstens {MEMORY_MAX_LINES} Zeilen, ohne Einleitung. "
@@ -41,7 +41,7 @@ def load():
 
 
 def for_system_prompt():
-    """設定文の後ろに足す文章（今日の日付と、これまでの記憶）"""
+    """Text to add after the system prompt (today's date and the memory so far)"""
     text = f"\n\nHeute ist {_today()}."
     memory = load()
     if memory:
@@ -51,7 +51,7 @@ def for_system_prompt():
 
 
 def update(client, model, conversation_history):
-    """終わった会話から記憶を更新する。失敗したら今の記憶をそのまま残す"""
+    """Update the memory from the conversation that just ended. If it fails, keep the current memory as is"""
     lines = []
     for message in conversation_history:
         if not isinstance(message.get("content"), str):
@@ -59,7 +59,7 @@ def update(client, model, conversation_history):
         if message["role"] == "user":
             lines.append(f"Person: {message['content']}")
         elif message["role"] == "assistant":
-            lines.append(f"KIKO: {message['content']}")
+            lines.append(f"Begleiter: {message['content']}")
     if not any(line.startswith("Person:") for line in lines):
         return
 
@@ -79,15 +79,15 @@ def update(client, model, conversation_history):
         )
         new_memory = (response.choices[0].message.content or "").strip()
     except Exception as e:
-        print(f"⚠️ 記憶の更新エラー: {e}")
+        print(f"⚠️ Memory update error: {e}")
         return
     if not new_memory:
         return
 
     new_memory = "\n".join(new_memory.splitlines()[:MEMORY_MAX_LINES])
-    # 書いている途中で電源が切れても記憶が壊れないよう、別名で書いてから置き換える
+    # Write under another name and then replace, so the memory is not corrupted if power is lost mid-write
     temp_file = MEMORY_FILE + ".tmp"
     with open(temp_file, "w", encoding="utf-8") as file:
         file.write(new_memory + "\n")
     os.replace(temp_file, MEMORY_FILE)
-    print(f"🧠 記憶を更新しました（{len(new_memory.splitlines())}行）")
+    print(f"🧠 Memory updated ({len(new_memory.splitlines())} lines)")

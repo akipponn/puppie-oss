@@ -41,7 +41,7 @@ import threading
 
 from logger import log_to_csv
 import weather
-import kiko_memory
+import puppie_memory
 
 # === Setup ===
 load_dotenv()  # read .env
@@ -57,7 +57,10 @@ def _handle_sigterm(signum, frame):
 
 signal.signal(signal.SIGTERM, _handle_sigterm)
 
-PUPPIE_SETTING_TEXT = "Dein Name ist KIKO. Du hast eine Benutzeroberfläche aus Holz und wirst von der Bonamondo UG entwickelt, um als Gesprächspartner die Einsamkeit älterer Menschen zu lindern. Christian, der CEO von Bonamondo, ist ehemaliger Profisportler und kümmert sich um Business Development. Für Design und Entwicklung ist Akiko verantwortlich. Heute stellt Akiko gemeinsam mit dir das KIKO-Projekt vor. Bitte antworte in etwa 20 Wörtern und halte deine Antworten einfach und verständlich. Dies ist ein gesprochenes Gespräch: Man spricht mit dir und hört deine Antwort. Verwende deshalb Wörter wie „sagen“ oder „erzählen“, niemals „schreiben“ oder „lesen“."
+# Who the character is: its name and role. Set PUPPIE_PERSONA in .env to give it your own.
+DEFAULT_PERSONA = "Dein Name ist Puppie. Du bist ein freundlicher Alltagsbegleiter und unterhältst dich gern mit allen."
+PUPPIE_PERSONA = os.getenv("PUPPIE_PERSONA") or DEFAULT_PERSONA
+PUPPIE_SETTING_TEXT = PUPPIE_PERSONA + " Bitte antworte in etwa 20 Wörtern und halte deine Antworten einfach und verständlich. Dies ist ein gesprochenes Gespräch: Man spricht mit dir und hört deine Antwort. Verwende deshalb Wörter wie „sagen“ oder „erzählen“, niemals „schreiben“ oder „lesen“."
 FALLBACK_REPLY = "Entschuldigung, das habe ich gerade nicht verstanden. Kannst du das bitte noch einmal sagen?"
 STOP_PHRASES = ["tschüss", "auf wiedersehen", "bis bald", "mach's gut"]
 GPT_MODEL = 'gpt-5.4-nano'
@@ -404,7 +407,7 @@ def run_conversation():
         set_led("listening")
 
         # Add today's date and what was remembered from earlier conversations to the system prompt
-        defaultsetting = {"role": "system", "content": PUPPIE_SETTING_TEXT + kiko_memory.for_system_prompt()}
+        defaultsetting = {"role": "system", "content": PUPPIE_SETTING_TEXT + puppie_memory.for_system_prompt()}
         conversation_history.append(defaultsetting)
 
         last_activity = time.monotonic()
@@ -465,7 +468,7 @@ def run_conversation():
         in_conversation = False
         # After the goodbye has been said, save what to remember from this conversation (1-2 seconds).
         # A touch during this time is accepted as the signal for the next conversation
-        kiko_memory.update(openai_client, GPT_MODEL, conversation_history)
+        puppie_memory.update(openai_client, GPT_MODEL, conversation_history)
 
 # === Main loop ===
 try:
