@@ -1,21 +1,21 @@
 """
-天気予報。Open-Meteo (https://open-meteo.com) を使う。APIキーは不要。
-LLMが「天気を聞かれた」と判断したときに get_weather を呼び出す（function calling）。
+Weather forecast. Uses Open-Meteo (https://open-meteo.com). No API key needed.
+The LLM calls get_weather when it decides it has been asked about the weather (function calling).
 """
 import datetime
 import json
 import os
 
-import httpx  # openaiパッケージと一緒に入る
+import httpx  # installed together with the openai package
 
-# 街の名前を言わずに天気を聞かれたときの街。.envに PUPPIE_HOME_CITY=Berlin のように書けば変更できる
+# The city used when asked about the weather without naming one. Change it by writing e.g. PUPPIE_HOME_CITY=Berlin in .env
 HOME_CITY = os.getenv("PUPPIE_HOME_CITY", "Leipzig")
 WEATHER_TIMEOUT_SEC = 4
 FORECAST_DAYS = 7
 
 WEEKDAYS = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
 
-# WMOの天気コード → 読み上げ用のドイツ語
+# WMO weather code → German for reading aloud
 WEATHER_CODES = {
     0: "klarer Himmel", 1: "überwiegend klar", 2: "teilweise bewölkt", 3: "bewölkt",
     45: "Nebel", 48: "Nebel mit Reif",
@@ -29,7 +29,7 @@ WEATHER_CODES = {
     95: "Gewitter", 96: "Gewitter mit Hagel", 99: "Gewitter mit Hagel",
 }
 
-# LLMに渡す道具の説明
+# Description of the tool passed to the LLM
 TOOLS = [{
     "type": "function",
     "function": {
@@ -47,7 +47,7 @@ TOOLS = [{
     },
 }]
 
-_location_cache = {}  # 街の名前 → (表示名, 緯度, 経度)。同じ街を2回調べない
+_location_cache = {}  # city name → (display name, latitude, longitude). Do not look up the same city twice
 
 
 def _get_json(url, params):
@@ -77,7 +77,7 @@ def _describe(code):
 
 
 def get_weather(city=None):
-    """天気をLLMに渡す文章（ドイツ語）で返す。失敗したときも、その旨を文章で返す"""
+    """Return the weather as text (in German) to pass to the LLM. On failure, return text that says so"""
     city = (city or "").strip() or HOME_CITY
     try:
         location = _find_location(city)
@@ -93,7 +93,7 @@ def get_weather(city=None):
             "forecast_days": FORECAST_DAYS,
         })
     except Exception as e:
-        print(f"⚠️ 天気の取得エラー: {e}")
+        print(f"⚠️ Weather fetch error: {e}")
         return "Die Wetterdaten sind gerade nicht erreichbar."
 
     current = data["current"]
@@ -116,7 +116,7 @@ def get_weather(city=None):
 
 
 def call_tool(name, arguments_json):
-    """LLMからの呼び出しを実行して、結果の文章を返す"""
+    """Run a call from the LLM and return the resulting text"""
     if name != "get_weather":
         return "Unbekanntes Werkzeug."
     try:
