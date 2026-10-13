@@ -13,7 +13,7 @@ MEMORY_TIMEOUT_SEC = 15
 WEEKDAYS = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
 
 UPDATE_INSTRUCTIONS = (
-    "Du pflegst das Gedächtnis von KIKO, einem sprechenden Begleiter für ältere Menschen. "
+    "Du pflegst das Gedächtnis von Puppie, einem sprechenden Begleiter. "
     "Du bekommst das bisherige Gedächtnis und die Mitschrift eines neuen Gesprächs. "
     "Gib das aktualisierte Gedächtnis zurück: kurze Stichpunkte auf Deutsch, eine Zeile pro Stichpunkt, "
     f"höchstens {MEMORY_MAX_LINES} Zeilen, ohne Einleitung. "
@@ -59,7 +59,7 @@ def update(client, model, conversation_history):
         if message["role"] == "user":
             lines.append(f"Person: {message['content']}")
         elif message["role"] == "assistant":
-            lines.append(f"KIKO: {message['content']}")
+            lines.append(f"Puppie: {message['content']}")
     if not any(line.startswith("Person:") for line in lines):
         return
 
