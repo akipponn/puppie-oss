@@ -57,7 +57,10 @@ def _handle_sigterm(signum, frame):
 
 signal.signal(signal.SIGTERM, _handle_sigterm)
 
-PUPPIE_SETTING_TEXT = "Dein Name ist Puppie. Du bist ein kleines Sprachmodul, das in einem Spielzeug oder einem anderen Gegenstand steckt und sich mit Menschen unterhält. Bitte antworte in etwa 20 Wörtern und halte deine Antworten einfach und verständlich. Dies ist ein gesprochenes Gespräch: Man spricht mit dir und hört deine Antwort. Verwende deshalb Wörter wie „sagen“ oder „erzählen“, niemals „schreiben“ oder „lesen“."
+# Who the character is: its name and role. Set PUPPIE_PERSONA in .env to give it your own.
+DEFAULT_PERSONA = "Dein Name ist Puppie. Du bist ein freundlicher Alltagsbegleiter und unterhältst dich mit Kindern und Erwachsenen."
+PUPPIE_PERSONA = os.getenv("PUPPIE_PERSONA") or DEFAULT_PERSONA
+PUPPIE_SETTING_TEXT = PUPPIE_PERSONA + " Bitte antworte in etwa 20 Wörtern und halte deine Antworten einfach und verständlich. Dies ist ein gesprochenes Gespräch: Man spricht mit dir und hört deine Antwort. Verwende deshalb Wörter wie „sagen“ oder „erzählen“, niemals „schreiben“ oder „lesen“."
 FALLBACK_REPLY = "Entschuldigung, das habe ich gerade nicht verstanden. Kannst du das bitte noch einmal sagen?"
 STOP_PHRASES = ["tschüss", "auf wiedersehen", "bis bald", "mach's gut"]
 GPT_MODEL = 'gpt-5.4-nano'

@@ -32,7 +32,7 @@ cp .env.example .env
 
 Then:
 
-1. Put your OpenAI API key and your city into `.env`.
+1. Put your OpenAI API key and your city into `.env`. If you like, also give your Puppie its own name and role there (`PUPPIE_PERSONA`).
 2. Put your AWS credentials into `~/.aws/credentials` (Polly reads them from there, not from `.env`).
 3. Start one conversation by hand:
 
