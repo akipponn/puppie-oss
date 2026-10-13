@@ -1,20 +1,20 @@
 """
-常時起動しておく見張りプログラム。
-おしゃべりプログラム(puppie_main.py)を先に起動して待機させておき、
-タッチセンサー(GPIO23)がタッチされるたびに合図(SIGUSR1)を送って
-会話を始めさせる/終わらせる。待機中のpuppie_main.pyはマイクを止めている。
-RGB LEDもここで持ち、puppie_main.pyが標準出力に出す「@@LED 状態」の行を
-読み取って会話の状態を表示する。
+The watcher: a program that is kept running all the time.
+It starts the conversation program (puppie_main.py) ahead of time and keeps it on standby.
+Each time the touch sensor (GPIO23) is touched, it sends a signal (SIGUSR1) to make
+puppie_main.py start or end a conversation. While on standby, puppie_main.py keeps the microphone stopped.
+The RGB LED also belongs to this program: it reads the "@@LED <state>" lines that puppie_main.py
+prints to standard output and shows the state of the conversation.
 
-  消灯          待機中
-  白の明滅      会話の準備中(タッチ直後〜準備完了)
-  緑の点灯      聞いている(どうぞ話して)
-  青の明滅      考え中
-  青の点灯      Puppieが話している
-  赤の点灯      困っている(ネット切れ、異常終了)
+  Off             Standby
+  Pulsing white   Getting ready for a conversation (from the touch until ready)
+  Solid green     Listening (go ahead and speak)
+  Pulsing blue    Thinking
+  Solid blue      Puppie is speaking
+  Solid red       In trouble (no network, crashed)
 
-gpiozeroはPiのシステムPythonに入っているので、このファイルは
-.venvではなく /usr/bin/python3 で動かす(puppie_main.pyは.venvで起動する)。
+gpiozero is installed in the Pi's system Python, so run this file with
+/usr/bin/python3, not the .venv (puppie_main.py is started with the .venv).
 """
 import os
 import signal
@@ -24,24 +24,24 @@ import time
 
 from gpiozero import DigitalInputDevice, RGBLED
 
-TOUCH_PIN = 23  # 物理ピン16番
-RED_PIN = 17    # 物理ピン11番
-GREEN_PIN = 22  # 物理ピン15番
-BLUE_PIN = 27   # 物理ピン13番
+TOUCH_PIN = 23  # physical pin 16
+RED_PIN = 17    # physical pin 11
+GREEN_PIN = 22  # physical pin 15
+BLUE_PIN = 27   # physical pin 13
 POLL_INTERVAL_SEC = 0.05
 
 LED_MARKER = "@@LED "
 PULSE_FADE_SEC = 0.8
-# 異常終了したとき、赤をこの秒数だけ点けてから消灯(待機)に戻し、起動し直す
+# After a crash, keep red on for this many seconds, then go back to off (standby) and restart
 ERROR_HOLD_SEC = 5
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MAIN_CMD = [os.path.join(BASE_DIR, ".venv/bin/python"), "-u", "puppie_main.py"]
-# puppie_main.pyの読み込み(十数秒)が終わる前にタッチされたときだけ「ちょっと待ってね」を流す
+# Play "just a moment" only when touched before puppie_main.py has finished loading (ten-odd seconds)
 WAIT_VOICE_CMD = ["aplay", "-q", os.path.join(BASE_DIR, "Voices/vicky_wait.wav")]
 
 
-# SIGTERM（systemdの停止シグナルなど）でもfinallyの後始末を通す
+# Run the cleanup in `finally` on SIGTERM too (e.g. the stop signal from systemd)
 def _handle_sigterm(signum, frame):
     raise KeyboardInterrupt()
 
@@ -67,8 +67,8 @@ def show_led(state):
         led.off()
 
 
-# puppie_main.pyの出力を1行ずつ読み、LEDの指示だけ抜き取って残りはそのままログに流す。
-# LED自体はメインループ側で切り替える(スレッドからは希望の状態を書き残すだけ)。
+# Read puppie_main.py's output line by line, pick out the LED instructions and pass the rest on to the log as is.
+# The LED itself is switched in the main loop (the thread only records the wanted state).
 def read_main_output(proc):
     global wanted_led, main_ready
     for line in proc.stdout:
@@ -89,15 +89,15 @@ def start_main():
     reader.start()
 
 
-# TTP223はトグル式に改造済みで、タッチのたびにHigh/Lowが反転する。
-# 会話が自分で終わって(さよなら/無発話)もセンサーはHighのまま残るので、
-# レベルではなく「変化したら1タッチ」として扱う。
+# The TTP223 has been modified to toggle mode: each touch flips it between High and Low.
+# The sensor stays High even when a conversation ends on its own (goodbye / silence),
+# so treat "a change" as one touch, not the level.
 sensor = DigitalInputDevice(TOUCH_PIN, pull_up=False)
 led = RGBLED(red=RED_PIN, green=GREEN_PIN, blue=BLUE_PIN)
 last_value = sensor.value
 main_proc = None
 reader = None
-main_ready = False  # puppie_main.pyが読み込みを終えて待機に入ったらTrue
+main_ready = False  # True once puppie_main.py has finished loading and is on standby
 wanted_led = "idle"
 shown_led = "idle"
 error_until = None
@@ -111,18 +111,18 @@ try:
         if value != last_value:
             last_value = value
             if is_running(main_proc):
-                print("👆 タッチ検知", flush=True)
+                print("👆 Touch detected", flush=True)
                 if not main_ready:
                     subprocess.Popen(WAIT_VOICE_CMD)
-                # 会話を始めるか終えるかはpuppie_main.py側が自分の状態で決める
+                # Whether to start or end a conversation is decided by puppie_main.py from its own state
                 main_proc.send_signal(signal.SIGUSR1)
                 if shown_led == "idle":
                     wanted_led = "starting"
 
-        # puppie_main.pyが落ちたら赤を点け、少し待って起動し直す
+        # If puppie_main.py dies, turn on red, wait a little and restart it
         if main_proc is not None and main_proc.poll() is not None:
             reader.join(timeout=1)
-            print(f"⚠️ おしゃべりプログラムが終了しました (code={main_proc.returncode})。起動し直します", flush=True)
+            print(f"⚠️ The conversation program exited (code={main_proc.returncode}). Restarting it", flush=True)
             wanted_led = "error"
             error_until = time.monotonic() + ERROR_HOLD_SEC
             main_proc = None
