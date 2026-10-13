@@ -27,9 +27,9 @@ Voices/*
 # Recordings of the first utterance, kept for analysis
 debug_first/
 
-# KIKO's memory (personal content, not published)
-kiko_memory.txt
-kiko_memory.txt.tmp
+# Puppie's memory (personal content, not published)
+puppie_memory.txt
+puppie_memory.txt.tmp
 
 # Conversation log and reply audio (personal content, not published)
 log_puppie_conversation.csv

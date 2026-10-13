@@ -1,12 +1,12 @@
 """
-KIKO's memory. After each conversation, the LLM sums up what is worth remembering as short bullet points.
+Puppie's memory. After each conversation, the LLM sums up what is worth remembering as short bullet points.
 They are saved to a text file and passed to the LLM together with the system prompt at the start of the next conversation.
-To make KIKO forget, delete MEMORY_FILE (you can also edit its contents by hand).
+To make Puppie forget, delete MEMORY_FILE (you can also edit its contents by hand).
 """
 import datetime
 import os
 
-MEMORY_FILE = "kiko_memory.txt"
+MEMORY_FILE = "puppie_memory.txt"
 MEMORY_MAX_LINES = 30
 MEMORY_TIMEOUT_SEC = 15
 

@@ -41,7 +41,7 @@ import threading
 
 from logger import log_to_csv
 import weather
-import kiko_memory
+import puppie_memory
 
 # === Setup ===
 load_dotenv()  # read .env
@@ -404,7 +404,7 @@ def run_conversation():
         set_led("listening")
 
         # Add today's date and what was remembered from earlier conversations to the system prompt
-        defaultsetting = {"role": "system", "content": PUPPIE_SETTING_TEXT + kiko_memory.for_system_prompt()}
+        defaultsetting = {"role": "system", "content": PUPPIE_SETTING_TEXT + puppie_memory.for_system_prompt()}
         conversation_history.append(defaultsetting)
 
         last_activity = time.monotonic()
@@ -465,7 +465,7 @@ def run_conversation():
         in_conversation = False
         # After the goodbye has been said, save what to remember from this conversation (1-2 seconds).
         # A touch during this time is accepted as the signal for the next conversation
-        kiko_memory.update(openai_client, GPT_MODEL, conversation_history)
+        puppie_memory.update(openai_client, GPT_MODEL, conversation_history)
 
 # === Main loop ===
 try:
