@@ -58,7 +58,7 @@ def _handle_sigterm(signum, frame):
 signal.signal(signal.SIGTERM, _handle_sigterm)
 
 # Who the character is: its name and role. Set PUPPIE_PERSONA in .env to give it your own.
-DEFAULT_PERSONA = "Dein Name ist Puppie. Du bist ein freundlicher Alltagsbegleiter und unterhältst dich mit Kindern und Erwachsenen."
+DEFAULT_PERSONA = "Dein Name ist Puppie. Du bist ein freundlicher Alltagsbegleiter und unterhältst dich gern mit allen."
 PUPPIE_PERSONA = os.getenv("PUPPIE_PERSONA") or DEFAULT_PERSONA
 PUPPIE_SETTING_TEXT = PUPPIE_PERSONA + " Bitte antworte in etwa 20 Wörtern und halte deine Antworten einfach und verständlich. Dies ist ein gesprochenes Gespräch: Man spricht mit dir und hört deine Antwort. Verwende deshalb Wörter wie „sagen“ oder „erzählen“, niemals „schreiben“ oder „lesen“."
 FALLBACK_REPLY = "Entschuldigung, das habe ich gerade nicht verstanden. Kannst du das bitte noch einmal sagen?"
