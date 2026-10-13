@@ -1,18 +1,18 @@
 import os
 import signal
 
-# 見張りプログラム(puppie_watcher.py)は PUPPIE_STANDBY=1 を付けてこのプログラムを起動する。
-# そのときは準備だけ済ませてマイクを止めたまま待機し、タッチの合図(SIGUSR1)が来るたびに
-# 会話を始める/終える。合図は下の重いimportの最中にも届くので、いちばん先に受け口を作る。
-# 単独で起動したとき(PUPPIE_STANDBYなし)は、すぐ会話を始めて1回で終了する。
+# The watcher (puppie_watcher.py) starts this program with PUPPIE_STANDBY=1.
+# In that case it only gets ready and waits with the microphone stopped; each touch signal (SIGUSR1)
+# starts or ends a conversation. The signal can arrive during the heavy imports below, so the handler is set up first.
+# When started on its own (without PUPPIE_STANDBY), it starts a conversation right away and exits after one.
 STANDBY = os.getenv("PUPPIE_STANDBY") == "1"
 
 class ConversationStop(BaseException):
-    """会話中のタッチで会話を打ち切る合図。except Exceptionに捕まらないようBaseExceptionにしている"""
+    """Signal to cut a conversation short when touched during it. A BaseException so that `except Exception` does not catch it"""
 
 start_requested = not STANDBY
 in_conversation = False
-stopping = False  # さよなら音声に入ったらTrue。以降のタッチは無視する
+stopping = False  # True once the goodbye audio starts. Touches after that are ignored
 
 def _handle_touch(signum, frame):
     global start_requested, stopping
@@ -43,15 +43,15 @@ from logger import log_to_csv
 import weather
 import kiko_memory
 
-# === 初期化 ===
-load_dotenv()  # .envを読み込む
+# === Setup ===
+load_dotenv()  # read .env
 
-# SIGTERM（kill、systemdの停止シグナルなど）もKeyboardInterruptと同じ
-# 終了処理（さよなら音声・ストリームのクローズ）に乗せる
+# Route SIGTERM (kill, systemd stop, etc.) through the same shutdown path as
+# KeyboardInterrupt (goodbye audio, closing the stream)
 def _handle_sigterm(signum, frame):
     global stopping
     stopping = True
-    # さよなら音声の途中で2回目のSIGTERMが来ても中断されないよう、以降は無視する
+    # Ignore SIGTERM from here on, so a second one during the goodbye audio does not interrupt it
     signal.signal(signal.SIGTERM, signal.SIG_IGN)
     raise KeyboardInterrupt()
 
@@ -63,24 +63,24 @@ STOP_PHRASES = ["tschüss", "auf wiedersehen", "bis bald", "mach's gut"]
 GPT_MODEL = 'gpt-5.4-nano'
 # GPT_MODEL = 'gpt-4o-mini'
 STT_MODEL = 'gpt-4o-mini-transcribe'
-# STTが聞き取る言語。固定しないと短い発話を別の言語と取り違えることがある。
-# .envに PUPPIE_STT_LANGUAGE=ja のように書けば変更できる（空にすると自動判定）
+# Language the STT listens for. If it is not fixed, short utterances are sometimes taken for another language.
+# Change it with e.g. PUPPIE_STT_LANGUAGE=ja in .env (leave it empty for automatic detection)
 STT_LANGUAGE = os.getenv("PUPPIE_STT_LANGUAGE", "de")
-# OpenAIは普段1〜2秒で返るが、稀に数十秒固まることがある。
-# この秒数で打ち切って1回だけやり直す（無応答のまま待たせない）
+# OpenAI normally answers in 1-2 seconds, but on rare occasions it hangs for tens of seconds.
+# Give up after this many seconds and retry once (do not keep the user waiting in silence)
 STT_TIMEOUT_SEC = 6
 LLM_TIMEOUT_SEC = 8
-# STTに送る前に録音をOpusに圧縮する（WAVの約1/10）。上りの遅い回線では
-# 送信時間が待ち時間の大半になるため。Piには sudo apt install opus-tools が必要
-# 圧縮の手間(--comp)は既定の10だとPi Zero 2Wで7秒の発話に約1秒かかる。3と60msフレームなら約0.35秒で、
-# 認識結果は変わらなかった(2026-10-06実測)
+# Compress the recording to Opus before sending it to STT (about 1/10 the size of WAV). On a line with
+# slow upload, sending takes most of the waiting time. The Pi needs: sudo apt install opus-tools
+# Encoder effort (--comp): the default 10 takes about 1 second for a 7-second utterance on a Pi Zero 2W. With 3 and 60 ms frames it takes about 0.35 seconds,
+# and the transcription did not change (measured 2026-10-06)
 OPUS_BITRATE_KBPS = 24
 GPT_MAX_TOKENS = 1000
 
-# 音量（0.0〜1.0）。.envに PUPPIE_VOLUME=0.5 のように書けば調整できる
+# Volume (0.0-1.0). Adjust with e.g. PUPPIE_VOLUME=0.5 in .env
 VOLUME = float(os.getenv("PUPPIE_VOLUME", "0.7"))
 
-# ユーザーがこの秒数話さなかったら自動終了する。.envに PUPPIE_IDLE_TIMEOUT_SEC=60 のように書けば調整できる
+# End automatically when the user has not spoken for this many seconds. Adjust with e.g. PUPPIE_IDLE_TIMEOUT_SEC=60 in .env
 IDLE_TIMEOUT_SEC = float(os.getenv("PUPPIE_IDLE_TIMEOUT_SEC", "180"))
 
 RATE = 16000
@@ -88,21 +88,21 @@ CHUNK_DURATION_MS = 30
 CHUNK_SIZE = int(RATE * CHUNK_DURATION_MS / 1000)
 CHANNELS = 1
 
-SILENCE_CHUNKS_TO_STOP = 20  # 20 * 30ms = 600ms の無音で発話終了とみなす
-MAX_RECORD_SECONDS = 15      # 無音判定できない場合の安全上限
+SILENCE_CHUNKS_TO_STOP = 20  # 20 * 30ms = 600ms of silence ends the utterance
+MAX_RECORD_SECONDS = 15      # safety limit in case silence is never detected
 MAX_RECORD_CHUNKS = int(MAX_RECORD_SECONDS * 1000 / CHUNK_DURATION_MS)
 
-# 分析用: 会話の一発目の発話が外国語に聞き取られる原因を調べるため、一発目の録音だけここに残す。
-# 原因がわかって要らなくなったら、このフォルダごと消して keep_recording まわりを外せばよい
+# For analysis: to find out why the first utterance of a conversation is sometimes heard as a foreign language, only the first recording is kept here.
+# Once the cause is known and this is no longer needed, delete this folder and remove the keep_recording code
 FIRST_RECORDING_DIR = "debug_first"
 
-vad = webrtcvad.Vad(1)  # 感度（0〜3）
+vad = webrtcvad.Vad(1)  # aggressiveness (0-3)
 audio_interface = pyaudio.PyAudio()
 audio_stream = audio_interface.open(format=pyaudio.paInt16,
                                     channels=CHANNELS,
                                     rate=RATE,
                                     input=True,
-                                    start=False,  # 会話を始めるまでマイクは止めておく
+                                    start=False,  # keep the microphone stopped until a conversation starts
                                     frames_per_buffer=CHUNK_SIZE)
 
 pygame.mixer.init()
@@ -110,18 +110,18 @@ audio_playing = False
 
 history = collections.deque(maxlen=10)
 
-# GPT(STT兼用) & Polly clients
+# GPT (also used for STT) & Polly clients
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 polly_client = boto3.client("polly", region_name="eu-central-1")
 
-# === 関数 ===
+# === Functions ===
 def check_internet(host="8.8.8.8", port=53, timeout=3):
     """
-    インターネット接続があるかをチェックする。
-    host: デフォルトは Google Public DNS (8.8.8.8)
-    port: DNSポート53
-    timeout: 秒数
-    戻り値: True = 接続あり / False = 接続なし
+    Check whether there is an internet connection.
+    host: Google Public DNS (8.8.8.8) by default
+    port: DNS port 53
+    timeout: in seconds
+    Returns: True = connected / False = not connected
     """
     try:
         socket.setdefaulttimeout(timeout)
@@ -131,9 +131,9 @@ def check_internet(host="8.8.8.8", port=53, timeout=3):
     except socket.error:
         return False
     
-# LEDは見張りプログラム(puppie_watcher.py)が持っている。この行を標準出力に出すと
-# 見張り側が読み取ってLEDを切り替える（単独で起動したときはただのログになる）
-# listening=緑点灯 / thinking=青の明滅 / speaking=青点灯 / error=赤点灯
+# The LED belongs to the watcher (puppie_watcher.py). When this line is printed to standard output,
+# the watcher reads it and switches the LED (when started on its own, it is just a log line)
+# listening=steady green / thinking=blinking blue / speaking=steady blue / error=steady red
 def set_led(state):
     print(f"@@LED {state}", flush=True)
 
@@ -145,7 +145,7 @@ def is_stop_command(transcript):
     return any(phrase in lowered for phrase in STOP_PHRASES)
 
 def play_goodbye():
-    print("🛑 終了します。")
+    print("🛑 Ending.")
     set_led("speaking")
     pygame.mixer.music.load("./Voices/vicky_goodbye.wav")
     pygame.mixer.music.set_volume(VOLUME)
@@ -159,7 +159,7 @@ def play_audio(text):
     audio_stream.stop_stream()
 
     try:
-        # PollyでPCM取得（16kHz, mono, 16bit）
+        # Get PCM from Polly (16kHz, mono, 16bit)
         t0 = time.perf_counter()
         response = polly_client.synthesize_speech(
             Text=text,
@@ -168,27 +168,27 @@ def play_audio(text):
             VoiceId="Vicki",
             LanguageCode="de-DE"
         )
-        print(f"⏱️ TTS合成: {time.perf_counter() - t0:.2f}s")
+        print(f"⏱️ TTS synthesis: {time.perf_counter() - t0:.2f}s")
 
-        # PCMをWAVファイルにラップ
+        # Wrap the PCM in a WAV file
         t0 = time.perf_counter()
         with wave.open("reply.wav", "wb") as wav_file:
             wav_file.setnchannels(1)
             wav_file.setsampwidth(2)   # 16bit = 2 bytes
             wav_file.setframerate(16000)
             wav_file.writeframes(response['AudioStream'].read())
-        print(f"⏱️ WAV書き出し: {time.perf_counter() - t0:.2f}s")
+        print(f"⏱️ WAV write: {time.perf_counter() - t0:.2f}s")
 
         t0 = time.perf_counter()
         pygame.mixer.music.load("reply.wav")
         pygame.mixer.music.set_volume(VOLUME)
         set_led("speaking")
         pygame.mixer.music.play()
-        print(f"⏱️ 再生開始まで: {time.perf_counter() - t0:.2f}s")
+        print(f"⏱️ Time to playback start: {time.perf_counter() - t0:.2f}s")
         while pygame.mixer.music.get_busy():
             time.sleep(0.1)
     except Exception as e:
-        print(f"⚠️ 音声再生エラー: {e}")
+        print(f"⚠️ Audio playback error: {e}")
     finally:
         time.sleep(0.25)
         history.clear()
@@ -197,8 +197,8 @@ def play_audio(text):
 
 def encode_for_stt(raw):
     """
-    録音(PCM)をSTT送信用のファイル(名前, 中身)にする。
-    opusencでOpusに圧縮し、使えなければ無圧縮のWAVで送る。
+    Turn a recording (PCM) into a file (name, content) to send to STT.
+    Compress it to Opus with opusenc; if that is not available, send uncompressed WAV.
     """
     try:
         t0 = time.perf_counter()
@@ -207,12 +207,12 @@ def encode_for_stt(raw):
              "--bitrate", str(OPUS_BITRATE_KBPS), "--comp", "3", "--framesize", "60", "-", "-"],
             input=raw, capture_output=True, check=True, timeout=5,
         )
-        print(f"⏱️ Opus圧縮: {time.perf_counter() - t0:.2f}s ({len(raw) / 1024:.0f}KB → {len(result.stdout) / 1024:.0f}KB)")
+        print(f"⏱️ Opus compression: {time.perf_counter() - t0:.2f}s ({len(raw) / 1024:.0f}KB → {len(result.stdout) / 1024:.0f}KB)")
         return ("speech.ogg", result.stdout)
     except Exception as e:
-        print(f"⚠️ Opus圧縮できないのでWAVで送ります: {e}")
+        print(f"⚠️ Opus compression failed, sending WAV instead: {e}")
 
-    # OpenAIのSTTはファイル形式で受け取るため、PCMをメモリ上でWAVにラップする
+    # OpenAI's STT expects a file format, so wrap the PCM as WAV in memory
     wav_buffer = io.BytesIO()
     with wave.open(wav_buffer, "wb") as wav_file:
         wav_file.setnchannels(CHANNELS)
@@ -223,9 +223,9 @@ def encode_for_stt(raw):
 
 def listen_and_transcribe(keep_recording=False):
     """
-    無音になるまでローカルで録音してから、録音全体を1回だけ
-    OpenAIのSTTに送る（非ストリーミング）。テザリング回線など
-    不安定なネットワークでも、長時間の持続接続に依存しないため安定しやすい。
+    Record locally until silence, then send the whole recording once
+    to OpenAI's STT (non-streaming). This does not depend on a long-lived
+    connection, so it stays stable on unreliable networks such as phone tethering.
     """
     frames = []
     silence_count = 0
@@ -247,22 +247,22 @@ def listen_and_transcribe(keep_recording=False):
     record_elapsed = time.perf_counter() - t_start
     set_led("thinking")
 
-    # デバッグ用: 実際に何を録音したか確認するため直近の録音を保存
+    # For debugging: save the latest recording to check what was actually captured
     with wave.open("/tmp/debug_capture.wav", "wb") as wav_file:
         wav_file.setnchannels(1)
         wav_file.setsampwidth(2)
         wav_file.setframerate(RATE)
         wav_file.writeframes(raw)
-    # 実時間が録音長よりはっきり長ければ、処理が追いつかず音が欠けている
-    print(f"🐛 録音長: {len(frames)}チャンク ({len(frames) * CHUNK_DURATION_MS / 1000:.2f}s、実時間 {record_elapsed:.2f}s)")
+    # If the elapsed time is clearly longer than the recording, processing fell behind and audio was dropped
+    print(f"🐛 Recording length: {len(frames)} chunks ({len(frames) * CHUNK_DURATION_MS / 1000:.2f}s, elapsed {record_elapsed:.2f}s)")
     if keep_recording:
         try:
             os.makedirs(FIRST_RECORDING_DIR, exist_ok=True)
             kept_path = os.path.join(FIRST_RECORDING_DIR, time.strftime("first_%Y%m%d_%H%M%S.wav"))
             shutil.copy("/tmp/debug_capture.wav", kept_path)
-            print(f"🐛 一発目の録音を保存: {kept_path}")
+            print(f"🐛 Saved the first recording: {kept_path}")
         except OSError as e:
-            print(f"⚠️ 一発目の録音を保存できません: {e}")
+            print(f"⚠️ Could not save the first recording: {e}")
 
     stt_file = encode_for_stt(raw)
 
@@ -276,14 +276,14 @@ def listen_and_transcribe(keep_recording=False):
         print(f"⏱️ STT: {time.perf_counter() - t0:.2f}s")
         return response.text.strip()
     except Exception as e:
-        print(f"⚠️ STTエラー: {e}")
+        print(f"⚠️ STT error: {e}")
         return ""
 
 def warmup_apis():
     """
-    起動時に各外部APIへダミーリクエストを送っておく。
-    TLSハンドシェイク等の初回接続コストを会話開始前に済ませることで、
-    ユーザーとの最初のやり取りが不自然に遅く感じる問題を防ぐ。
+    Send a dummy request to each external API at startup.
+    This gets first-connection costs such as the TLS handshake out of the way before the conversation,
+    so the user's first exchange does not feel unnaturally slow.
     """
     t0 = time.perf_counter()
     try:
@@ -293,8 +293,8 @@ def warmup_apis():
             max_completion_tokens=100,
         )
     except Exception as e:
-        print(f"⚠️ OpenAIウォームアップ失敗: {e}")
-    print(f"⏱️ ウォームアップ(OpenAI): {time.perf_counter() - t0:.2f}s")
+        print(f"⚠️ OpenAI warm-up failed: {e}")
+    print(f"⏱️ Warm-up (OpenAI): {time.perf_counter() - t0:.2f}s")
 
     t0 = time.perf_counter()
     try:
@@ -306,15 +306,15 @@ def warmup_apis():
             LanguageCode="de-DE",
         )
     except Exception as e:
-        print(f"⚠️ Pollyウォームアップ失敗: {e}")
-    print(f"⏱️ ウォームアップ(Polly): {time.perf_counter() - t0:.2f}s")
+        print(f"⚠️ Polly warm-up failed: {e}")
+    print(f"⏱️ Warm-up (Polly): {time.perf_counter() - t0:.2f}s")
 
 def chat_with_assistant(client, user_input, conversation_history):
-    # ユーザーの入力を履歴に追加
+    # Add the user's input to the history
     history_length = len(conversation_history)
     conversation_history.append({"role": "user", "content": user_input})
 
-    # OpenAI API呼び出し
+    # Call the OpenAI API
     try:
         llm = client.with_options(timeout=LLM_TIMEOUT_SEC, max_retries=1)
         t0 = time.perf_counter()
@@ -325,7 +325,7 @@ def chat_with_assistant(client, user_input, conversation_history):
         print(f"⏱️ LLM: {time.perf_counter() - t0:.2f}s")
         message = response.choices[0].message
 
-        # 天気を聞かれたとLLMが判断したら、天気を調べて結果を渡し、もう一度答えさせる
+        # If the LLM decides it was asked about the weather, look it up, pass the result back, and let it answer again
         if message.tool_calls:
             conversation_history.append({
                 "role": "assistant",
@@ -339,33 +339,33 @@ def chat_with_assistant(client, user_input, conversation_history):
             for call in message.tool_calls:
                 t0 = time.perf_counter()
                 result = weather.call_tool(call.function.name, call.function.arguments)
-                print(f"⏱️ 天気({call.function.arguments}): {time.perf_counter() - t0:.2f}s")
+                print(f"⏱️ Weather({call.function.arguments}): {time.perf_counter() - t0:.2f}s")
                 conversation_history.append({"role": "tool", "tool_call_id": call.id, "content": result})
             t0 = time.perf_counter()
             response = llm.chat.completions.create(model=GPT_MODEL,
                 messages=conversation_history, max_completion_tokens=GPT_MAX_TOKENS,
                 )
-            print(f"⏱️ LLM(天気の結果から返答): {time.perf_counter() - t0:.2f}s")
+            print(f"⏱️ LLM (reply from the weather result): {time.perf_counter() - t0:.2f}s")
             message = response.choices[0].message
 
-        # アシスタントの応答を履歴に追加
+        # Add the assistant's reply to the history
         assistant_reply = message.content
         conversation_history.append({"role": "assistant", "content": assistant_reply})
 
         log_to_csv("User", user_input)
         log_to_csv("Assistant", assistant_reply)
 
-        # 応答を返す
+        # Return the reply
         # print(conversation_history)
         return assistant_reply
     
     except Exception as e:
-        print(f"⚠️ Chat APIエラー: {e}")
-        # 途中まで足した履歴（返答のない質問や天気の呼び出し）を残すと次の呼び出しが壊れるので巻き戻す
+        print(f"⚠️ Chat API error: {e}")
+        # Leaving the partly added history (a question with no reply, or a weather call) would break the next call, so roll it back
         del conversation_history[history_length:]
         return FALLBACK_REPLY
 
-# === 会話1回ぶん ===
+# === One conversation ===
 def run_conversation():
     global in_conversation, stopping
     stopping = False
@@ -378,16 +378,16 @@ def run_conversation():
         else:
             print("❌ No internet connection.")
             set_led("error")
-            # ここで ready.wav の代わりに「ごめんね、ネットがないよ」を再生
+            # Here, play "sorry, there is no internet" instead of ready.wav
             pygame.mixer.music.load("./Voices/vicky_noInternet.wav")
             pygame.mixer.music.set_volume(VOLUME)
             pygame.mixer.music.play()
-            while pygame.mixer.music.get_busy():   # 再生が終わるまで待つ
+            while pygame.mixer.music.get_busy():   # wait until playback finishes
                 time.sleep(0.1)
             return
 
-        # 待機中に接続は冷えるので会話のたびに温め直す。終わるのを待たずに聞き始める
-        # （最初の一言を話している間に終わる）
+        # Connections go cold while idle, so warm them up again for every conversation. Start listening without waiting for it
+        # (it finishes while the user says their first words)
         threading.Thread(target=warmup_apis, daemon=True).start()
 
         print("🎤 Puppie started. Waiting the user to speak...")
@@ -403,21 +403,21 @@ def run_conversation():
         audio_stream.start_stream()
         set_led("listening")
 
-        # 設定文に、今日の日付とこれまでの会話で覚えたことを足す
+        # Add today's date and what was remembered from earlier conversations to the system prompt
         defaultsetting = {"role": "system", "content": PUPPIE_SETTING_TEXT + kiko_memory.for_system_prompt()}
         conversation_history.append(defaultsetting)
 
         last_activity = time.monotonic()
-        first_utterance = True  # 最初に聞き取れた発話までの録音を分析用に残す
+        first_utterance = True  # keep recordings for analysis until the first utterance that is understood
 
         while True:
-            # ★ 再生中 or ストリーム停止中はreadしない
+            # ★ Do not read while audio is playing or the stream is stopped
             if audio_playing or not audio_stream.is_active():
                 time.sleep(0.01)
                 continue
 
             if time.monotonic() - last_activity > IDLE_TIMEOUT_SEC:
-                print(f"💤 {IDLE_TIMEOUT_SEC:.0f}秒間発話がなかったので終了します")
+                print(f"💤 No speech for {IDLE_TIMEOUT_SEC:.0f} seconds, ending the conversation")
                 break
 
             audio = audio_stream.read(CHUNK_SIZE, exception_on_overflow=False)
@@ -426,33 +426,33 @@ def run_conversation():
             history.append(1 if is_voice else 0)
 
             if sum(history) > 6:
-                print("🗣️ ユーザーが話し始めました")
+                print("🗣️ The user started speaking")
                 try:
                     transcript = listen_and_transcribe(keep_recording=first_utterance)
                     history.clear()
-                    print(f"✍️ 認識結果: {transcript if transcript else '(空振り/認識できず)'}")
+                    print(f"✍️ Transcript: {transcript if transcript else '(nothing recognized)'}")
                     if transcript and is_stop_command(transcript):
-                        print("👋 さよならコマンドを検知しました")
+                        print("👋 Goodbye phrase detected")
                         break
                     if transcript:
                         first_utterance = False
                         reply = chat_with_assistant(openai_client, transcript, conversation_history)
                         print(f"🤖 Puppie: {reply}")
                         play_audio(reply)
-                        # 雑音による空振りでは延長せず、認識できた発話への返答が終わった時点から数え直す
+                        # Do not extend on false triggers from noise; restart the count when the reply to a recognized utterance has finished
                         last_activity = time.monotonic()
                 except Exception as e:
-                    # 想定外のエラーでも会話ループ自体は止めない
-                    print(f"⚠️ 予期しないエラー: {e}")
-                # 返答を話し終えた後も、空振り・エラーの後も、ここで「どうぞ話して」に戻す
+                    # Keep the conversation loop running even on an unexpected error
+                    print(f"⚠️ Unexpected error: {e}")
+                # After a reply, and also after a false trigger or an error, go back to "go ahead and speak" here
                 set_led("listening")
 
-        # さよなら音声の途中でタッチされても、二重に再生しない
+        # Do not play the goodbye twice if touched during the goodbye audio
         stopping = True
         play_goodbye()
 
     except ConversationStop:
-        print("👆 タッチで会話を終了します")
+        print("👆 Ending the conversation by touch")
         play_goodbye()
 
     except KeyboardInterrupt:
@@ -463,16 +463,16 @@ def run_conversation():
         if audio_stream.is_active():
             audio_stream.stop_stream()
         in_conversation = False
-        # さよならを言い終えてから、この会話で覚えておくことを保存する（1〜2秒）。
-        # この間のタッチは次の会話の合図として受け付けられる
+        # After the goodbye has been said, save what to remember from this conversation (1-2 seconds).
+        # A touch during this time is accepted as the signal for the next conversation
         kiko_memory.update(openai_client, GPT_MODEL, conversation_history)
 
-# === メインループ ===
+# === Main loop ===
 try:
     while True:
         if STANDBY:
             set_led("idle")
-            print("💤 待機中。タッチを待っています...")
+            print("💤 Standby. Waiting for a touch...")
             while not start_requested:
                 time.sleep(0.05)
         start_requested = False
