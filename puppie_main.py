@@ -45,6 +45,10 @@ import puppie_memory
 # === Setup ===
 load_dotenv()  # read .env
 
+# Debug mode: PUPPIE_DEBUG=1 in .env saves the conversation to log_puppie_conversation.csv
+# and prints what was said to the log. Off by default, so only timings and lengths are logged.
+DEBUG = os.getenv("PUPPIE_DEBUG") == "1"
+
 # Route SIGTERM (kill, systemd stop, etc.) through the same shutdown path as
 # KeyboardInterrupt (goodbye audio, closing the stream)
 def _handle_sigterm(signum, frame):
@@ -323,7 +327,8 @@ def chat_with_assistant(client, user_input, conversation_history):
             for call in message.tool_calls:
                 t0 = time.perf_counter()
                 result = weather.call_tool(call.function.name, call.function.arguments)
-                print(f"⏱️ Weather({call.function.arguments}): {time.perf_counter() - t0:.2f}s")
+                args = call.function.arguments if DEBUG else "..."
+                print(f"⏱️ Weather({args}): {time.perf_counter() - t0:.2f}s")
                 conversation_history.append({"role": "tool", "tool_call_id": call.id, "content": result})
             t0 = time.perf_counter()
             response = llm.chat.completions.create(model=GPT_MODEL,
@@ -336,8 +341,9 @@ def chat_with_assistant(client, user_input, conversation_history):
         assistant_reply = message.content
         conversation_history.append({"role": "assistant", "content": assistant_reply})
 
-        log_to_csv("User", user_input)
-        log_to_csv("Assistant", assistant_reply)
+        if DEBUG:
+            log_to_csv("User", user_input)
+            log_to_csv("Assistant", assistant_reply)
 
         # Return the reply
         # print(conversation_history)
@@ -413,13 +419,18 @@ def run_conversation():
                 try:
                     transcript = listen_and_transcribe()
                     history.clear()
-                    print(f"✍️ Transcript: {transcript if transcript else '(nothing recognized)'}")
+                    if not transcript:
+                        print("✍️ Transcript: (nothing recognized)")
+                    elif DEBUG:
+                        print(f"✍️ Transcript: {transcript}")
+                    else:
+                        print(f"✍️ Transcript: {len(transcript)} characters")
                     if transcript and is_stop_command(transcript):
                         print("👋 Goodbye phrase detected")
                         break
                     if transcript:
                         reply = chat_with_assistant(openai_client, transcript, conversation_history)
-                        print(f"🤖 Puppie: {reply}")
+                        print(f"🤖 Puppie: {reply}" if DEBUG else f"🤖 Puppie: {len(reply or '')} characters")
                         play_audio(reply)
                         # Do not extend on false triggers from noise; restart the count when the reply to a recognized utterance has finished
                         last_activity = time.monotonic()
