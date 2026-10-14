@@ -24,9 +24,6 @@ Voices/*
 .polly_cache/
 *.mp3
 
-# Recordings of the first utterance, kept for analysis
-debug_first/
-
 # Puppie's memory (personal content, not published)
 puppie_memory.txt
 puppie_memory.txt.tmp

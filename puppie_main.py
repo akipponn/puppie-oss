@@ -33,7 +33,6 @@ import boto3
 from openai import OpenAI
 from dotenv import load_dotenv
 import io
-import shutil
 import wave
 import socket
 import subprocess
@@ -94,10 +93,6 @@ CHANNELS = 1
 SILENCE_CHUNKS_TO_STOP = 20  # 20 * 30ms = 600ms of silence ends the utterance
 MAX_RECORD_SECONDS = 15      # safety limit in case silence is never detected
 MAX_RECORD_CHUNKS = int(MAX_RECORD_SECONDS * 1000 / CHUNK_DURATION_MS)
-
-# For analysis: to find out why the first utterance of a conversation is sometimes heard as a foreign language, only the first recording is kept here.
-# Once the cause is known and this is no longer needed, delete this folder and remove the keep_recording code
-FIRST_RECORDING_DIR = "debug_first"
 
 vad = webrtcvad.Vad(1)  # aggressiveness (0-3)
 audio_interface = pyaudio.PyAudio()
@@ -224,7 +219,7 @@ def encode_for_stt(raw):
         wav_file.writeframes(raw)
     return ("speech.wav", wav_buffer.getvalue())
 
-def listen_and_transcribe(keep_recording=False):
+def listen_and_transcribe():
     """
     Record locally until silence, then send the whole recording once
     to OpenAI's STT (non-streaming). This does not depend on a long-lived
@@ -258,14 +253,6 @@ def listen_and_transcribe(keep_recording=False):
         wav_file.writeframes(raw)
     # If the elapsed time is clearly longer than the recording, processing fell behind and audio was dropped
     print(f"🐛 Recording length: {len(frames)} chunks ({len(frames) * CHUNK_DURATION_MS / 1000:.2f}s, elapsed {record_elapsed:.2f}s)")
-    if keep_recording:
-        try:
-            os.makedirs(FIRST_RECORDING_DIR, exist_ok=True)
-            kept_path = os.path.join(FIRST_RECORDING_DIR, time.strftime("first_%Y%m%d_%H%M%S.wav"))
-            shutil.copy("/tmp/debug_capture.wav", kept_path)
-            print(f"🐛 Saved the first recording: {kept_path}")
-        except OSError as e:
-            print(f"⚠️ Could not save the first recording: {e}")
 
     stt_file = encode_for_stt(raw)
 
@@ -411,7 +398,6 @@ def run_conversation():
         conversation_history.append(defaultsetting)
 
         last_activity = time.monotonic()
-        first_utterance = True  # keep recordings for analysis until the first utterance that is understood
 
         while True:
             # ★ Do not read while audio is playing or the stream is stopped
@@ -431,14 +417,13 @@ def run_conversation():
             if sum(history) > 6:
                 print("🗣️ The user started speaking")
                 try:
-                    transcript = listen_and_transcribe(keep_recording=first_utterance)
+                    transcript = listen_and_transcribe()
                     history.clear()
                     print(f"✍️ Transcript: {transcript if transcript else '(nothing recognized)'}")
                     if transcript and is_stop_command(transcript):
                         print("👋 Goodbye phrase detected")
                         break
                     if transcript:
-                        first_utterance = False
                         reply = chat_with_assistant(openai_client, transcript, conversation_history)
                         print(f"🤖 Puppie: {reply}")
                         play_audio(reply)
