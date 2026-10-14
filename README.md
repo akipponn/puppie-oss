@@ -32,7 +32,7 @@ cp .env.example .env
 
 Then:
 
-1. Put your OpenAI API key and your city into `.env`. If you like, also give your Puppie its own name and role there (`PUPPIE_PERSONA`).
+1. Put your OpenAI API key and your city into `.env`. If you like, also give your Puppie its own name and role there (`PUPPIE_PERSONA`). All settings are listed under [Settings](#settings).
 2. Put your AWS credentials into `~/.aws/credentials` (Polly reads them from there, not from `.env`).
 3. Start one conversation by hand:
 
@@ -41,6 +41,23 @@ Then:
    ```
 
 To make Puppie start on power-up and wait for a touch, and to set up the speaker and microphone, see [pi/README.md](pi/README.md).
+
+## Settings
+
+All settings live in `.env` (start from `.env.example`). Only the first two need to be filled in; the rest are optional and fall back to the default shown.
+
+| Setting | Default | What it does |
+|---|---|---|
+| `OPENAI_API_KEY` | (required) | Your OpenAI API key, used for speech to text and the conversation. |
+| `PUPPIE_HOME_CITY` | `Leipzig` | The city used for the weather forecast when you do not name one. |
+| `PUPPIE_PERSONA` | `Dein Name ist Puppie. Du bist ein freundlicher Alltagsbegleiter und unterhältst dich gern mit allen.` | Who your Puppie is (its name and role), written in the language it speaks. |
+| `PUPPIE_GPT_MODEL` | `gpt-5.4-nano` | The conversation model. `gpt-5.4-mini` gives smarter replies but is a little slower and costs more. |
+| `PUPPIE_STT_LANGUAGE` | `de` | The language Puppie listens for (e.g. `en`, `ja`). Leave it empty for automatic detection, but short utterances may then be taken for another language. |
+| `PUPPIE_VOLUME` | `0.7` | Speaker volume, from `0.0` to `1.0`. |
+| `PUPPIE_IDLE_TIMEOUT_SEC` | `180` | Puppie ends the conversation quietly after this many seconds without anyone speaking. |
+| `PUPPIE_DEBUG` | `0` | `1` saves every conversation to `log_puppie_conversation.csv` and shows what was said in the log (`journalctl`). Keep it at `0` unless you are fixing a problem. |
+
+Amazon Polly does not use `.env`; it reads your AWS credentials from `~/.aws/credentials`.
 
 ## Hardware
 
