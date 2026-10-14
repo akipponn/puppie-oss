@@ -399,6 +399,7 @@ def run_conversation():
         conversation_history.append(defaultsetting)
 
         last_activity = time.monotonic()
+        timed_out = False
 
         while True:
             # ★ Do not read while audio is playing or the stream is stopped
@@ -408,6 +409,7 @@ def run_conversation():
 
             if time.monotonic() - last_activity > IDLE_TIMEOUT_SEC:
                 print(f"💤 No speech for {IDLE_TIMEOUT_SEC:.0f} seconds, ending the conversation")
+                timed_out = True
                 break
 
             audio = audio_stream.read(CHUNK_SIZE, exception_on_overflow=False)
@@ -443,7 +445,12 @@ def run_conversation():
 
         # Do not play the goodbye twice if touched during the goodbye audio
         stopping = True
-        play_goodbye()
+        if timed_out:
+            # Nobody is talking, so end quietly: a sudden voice in a silent room would be startling.
+            # Only the LED goes back to standby
+            set_led("idle")
+        else:
+            play_goodbye()
 
     except ConversationStop:
         print("👆 Ending the conversation by touch")
