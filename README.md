@@ -61,7 +61,41 @@ Amazon Polly does not use `.env`; it reads your AWS credentials from `~/.aws/cre
 
 ## Hardware
 
-TODO: parts list for the Pi Zero 2 W version.
+This is what our own Puppie is built from. Other parts with the same specs should work too.
+
+| Part | Qty | Notes |
+|---|---|---|
+| Raspberry Pi Zero 2 W with soldered pin header | 1 | |
+| microSD card, 16 GB or larger | 1 | We use 32 GB. |
+| 5 V micro USB power supply | 1 | 2.5 A recommended. A power bank works too. |
+| [USB mini microphone](https://www.berrybase.de/usb-mini-mikrofon) | 1 | |
+| Micro USB to USB-A adapter (OTG) | 1 | For the microphone. |
+| MAX98357A I2S amplifier board | 1 | |
+| [Speaker, 3 W, 4 Ω](https://www.berrybase.de/mono-gehaeuselautsprecher-3w-4-ohm) | 1 | |
+| TTP223 touch sensor | 1 | Set to toggle mode by bridging the jumper pad on the board. |
+| RGB LED, common cathode | 1 | |
+| 220 Ω resistor | 3 | One for each LED color. |
+| Breadboard and jumper wires | | |
+
+### Wiring
+
+| Part | Pin on the part | Pi pin (physical) | GPIO |
+|---|---|---|---|
+| Amplifier | VIN | 2 | 5 V |
+| Amplifier | GND | 6 | GND |
+| Amplifier | SD | 7 | GPIO4 |
+| Amplifier | BCLK | 12 | GPIO18 |
+| Amplifier | LRC | 35 | GPIO19 |
+| Amplifier | DIN | 40 | GPIO21 |
+| Touch sensor | VCC | 1 | 3.3 V |
+| Touch sensor | GND | 9 | GND |
+| Touch sensor | I/O | 16 | GPIO23 |
+| RGB LED | Red (through a resistor) | 11 | GPIO17 |
+| RGB LED | Blue (through a resistor) | 13 | GPIO27 |
+| RGB LED | Green (through a resistor) | 15 | GPIO22 |
+| RGB LED | Common (longest leg) | 14 | GND |
+
+The speaker connects to the amplifier's + and − terminals, and the microphone goes into the Pi's USB port through the adapter. The audio setup on the Pi is described in [pi/README.md](pi/README.md).
 
 ## Privacy
 
