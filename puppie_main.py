@@ -66,8 +66,9 @@ PUPPIE_PERSONA = os.getenv("PUPPIE_PERSONA") or DEFAULT_PERSONA
 PUPPIE_SETTING_TEXT = PUPPIE_PERSONA + " Bitte antworte in etwa 20 Wörtern und halte deine Antworten einfach und verständlich. Dies ist ein gesprochenes Gespräch: Man spricht mit dir und hört deine Antwort. Verwende deshalb Wörter wie „sagen“ oder „erzählen“, niemals „schreiben“ oder „lesen“."
 FALLBACK_REPLY = "Entschuldigung, das habe ich gerade nicht verstanden. Kannst du das bitte noch einmal sagen?"
 STOP_PHRASES = ["tschüss", "auf wiedersehen", "bis bald", "mach's gut"]
-GPT_MODEL = 'gpt-5.4-nano'
-# GPT_MODEL = 'gpt-4o-mini'
+# Conversation model. The default nano is the fastest and cheapest; e.g. PUPPIE_GPT_MODEL=gpt-5.4-mini in .env
+# gives smarter replies but answers a little more slowly and costs more
+GPT_MODEL = os.getenv("PUPPIE_GPT_MODEL") or "gpt-5.4-nano"
 STT_MODEL = 'gpt-4o-mini-transcribe'
 # Language the STT listens for. If it is not fixed, short utterances are sometimes taken for another language.
 # Change it with e.g. PUPPIE_STT_LANGUAGE=ja in .env (leave it empty for automatic detection)
