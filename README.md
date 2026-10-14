@@ -65,7 +65,39 @@ TODO: parts list for the Pi Zero 2 W version.
 
 ## Privacy
 
-TODO: what Puppie stores (memory, conversation logs) and what it sends to external services.
+Puppie sends your conversations to the external services you signed up for yourself. Nothing is sent to us, the people who made Puppie.
+
+### What is sent out
+
+| Sent to | What | When |
+|---|---|---|
+| OpenAI | A recording of your voice | Each time you speak (to turn it into text) |
+| OpenAI | The conversation as text and Puppie's memory | Each time you speak (to come up with a reply) |
+| OpenAI | The text of that conversation and the memory so far | When a conversation ends (to update the memory) |
+| Amazon Polly | The text of Puppie's reply | Each reply (to turn it into speech) |
+| Open-Meteo | A city name | Only when you ask about the weather |
+
+How these services handle the data depends on their own terms.
+
+### What stays on Puppie (the Raspberry Pi)
+
+- **Memory** (`puppie_memory.txt`): after each conversation, Puppie sums up what is worth remembering as short bullet points, such as names, family and friends, likes, how you are feeling and your plans. It is not encrypted and holds at most 30 lines.
+- **The last reply as audio** (`reply.wav`): overwritten with every reply.
+- **Only in debug mode** (`PUPPIE_DEBUG=1`): the full conversation is written to `log_puppie_conversation.csv` and to the system log. Debug mode is off by default.
+
+**Recordings of your voice are not saved on the Pi.**
+
+### The microphone
+
+Puppie starts listening when you touch the sensor. If nobody speaks for a set time after Puppie's last reply, it stops listening and goes back to standby. The time is 3 minutes by default and can be changed with `PUPPIE_IDLE_TIMEOUT_SEC`. Touching the sensor again or saying "Tschüss" also ends the conversation.
+
+### Making Puppie forget
+
+Delete `puppie_memory.txt` and Puppie forgets everything. It is a plain text file, so you can also open it and remove only some lines.
+
+### When others use your Puppie
+
+Tell the people who use it about the points above, especially that the memory can hold things like their health or family, and that their conversations are sent to external services.
 
 ## Partner
 
