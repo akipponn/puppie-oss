@@ -245,12 +245,6 @@ def listen_and_transcribe():
     record_elapsed = time.perf_counter() - t_start
     set_led("thinking")
 
-    # For debugging: save the latest recording to check what was actually captured
-    with wave.open("/tmp/debug_capture.wav", "wb") as wav_file:
-        wav_file.setnchannels(1)
-        wav_file.setsampwidth(2)
-        wav_file.setframerate(RATE)
-        wav_file.writeframes(raw)
     # If the elapsed time is clearly longer than the recording, processing fell behind and audio was dropped
     print(f"🐛 Recording length: {len(frames)} chunks ({len(frames) * CHUNK_DURATION_MS / 1000:.2f}s, elapsed {record_elapsed:.2f}s)")
 
