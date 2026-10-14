@@ -71,4 +71,4 @@ KIKO ("KIKO – Persönlicher K.I.-Chatbot für Seniorinnen und Senioren", Bona 
 
 ## License
 
-TODO: not decided yet.
+Puppie is released under the [MIT License](LICENSE).
