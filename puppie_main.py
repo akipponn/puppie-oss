@@ -63,7 +63,7 @@ signal.signal(signal.SIGTERM, _handle_sigterm)
 # Who the character is: its name and role. Set PUPPIE_PERSONA in .env to give it your own.
 DEFAULT_PERSONA = "Dein Name ist Puppie. Du bist ein freundlicher Alltagsbegleiter und unterhältst dich gern mit allen."
 PUPPIE_PERSONA = os.getenv("PUPPIE_PERSONA") or DEFAULT_PERSONA
-PUPPIE_SETTING_TEXT = PUPPIE_PERSONA + " Bitte antworte in etwa 20 Wörtern und halte deine Antworten einfach und verständlich. Dies ist ein gesprochenes Gespräch: Man spricht mit dir und hört deine Antwort. Verwende deshalb Wörter wie „sagen“ oder „erzählen“, niemals „schreiben“ oder „lesen“."
+PUPPIE_SETTING_TEXT = PUPPIE_PERSONA + " Bitte antworte in etwa 20 Wörtern und halte deine Antworten einfach und verständlich. Dies ist ein gesprochenes Gespräch: Man spricht mit dir und hört deine Antwort. Sprich deshalb nie von „schreiben“ oder „lesen“. Beginne direkt mit deiner Antwort, ohne Einleitung wie „Ich sage:“."
 FALLBACK_REPLY = "Entschuldigung, das habe ich gerade nicht verstanden. Kannst du das bitte noch einmal sagen?"
 STOP_PHRASES = ["tschüss", "auf wiedersehen", "bis bald", "mach's gut"]
 # Conversation model. The default nano is the fastest and cheapest; e.g. PUPPIE_GPT_MODEL=gpt-5.4-mini in .env
@@ -73,6 +73,9 @@ STT_MODEL = 'gpt-4o-mini-transcribe'
 # Language the STT listens for. If it is not fixed, short utterances are sometimes taken for another language.
 # Change it with e.g. PUPPIE_STT_LANGUAGE=ja in .env (leave it empty for automatic detection)
 STT_LANGUAGE = os.getenv("PUPPIE_STT_LANGUAGE", "de")
+# A misheard first sentence can pull the replies into another language or a dialect, so keep German replies standard
+if STT_LANGUAGE == "de":
+    PUPPIE_SETTING_TEXT += " Antworte immer auf Hochdeutsch, ohne Dialekt."
 # OpenAI normally answers in 1-2 seconds, but on rare occasions it hangs for tens of seconds.
 # Give up after this many seconds and retry once (do not keep the user waiting in silence)
 STT_TIMEOUT_SEC = 6
