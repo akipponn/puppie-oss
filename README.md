@@ -73,9 +73,8 @@ This is what our own Puppie is built from. Other parts with the same specs shoul
 | MAX98357A I2S amplifier board | 1 | |
 | [Speaker, 3 W, 4 Ω](https://www.berrybase.de/mono-gehaeuselautsprecher-3w-4-ohm) | 1 | |
 | TTP223 touch sensor | 1 | Set to toggle mode by bridging the jumper pad on the board. |
-| RGB LED, common cathode | 1 | |
-| 220 Ω resistor | 3 | One for each LED color. |
-| Breadboard and jumper wires | | |
+| RGB LED module, common cathode (KY-016) | 1 | The resistors are already on the board. |
+| Jumper wires, female to female | | |
 
 ### Wiring
 
@@ -90,10 +89,10 @@ This is what our own Puppie is built from. Other parts with the same specs shoul
 | Touch sensor | VCC | 1 | 3.3 V |
 | Touch sensor | GND | 9 | GND |
 | Touch sensor | I/O | 16 | GPIO23 |
-| RGB LED | Red (through a resistor) | 11 | GPIO17 |
-| RGB LED | Blue (through a resistor) | 13 | GPIO27 |
-| RGB LED | Green (through a resistor) | 15 | GPIO22 |
-| RGB LED | Common (longest leg) | 14 | GND |
+| RGB LED module | R | 11 | GPIO17 |
+| RGB LED module | B | 13 | GPIO27 |
+| RGB LED module | G | 15 | GPIO22 |
+| RGB LED module | − | 14 | GND |
 
 The speaker connects to the amplifier's + and − terminals, and the microphone goes into the Pi's USB port through the adapter. The audio setup on the Pi is described in [pi/README.md](pi/README.md).
 
