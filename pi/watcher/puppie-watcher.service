@@ -6,6 +6,8 @@ Wants=network-online.target
 [Service]
 User=YOUR-USER-NAME
 WorkingDirectory=/home/YOUR-USER-NAME/puppie
+# Microphone gain (0-16). It falls back to 0 after a reboot, so set it each time. "-" = start anyway if it fails
+ExecStartPre=-/usr/bin/amixer -q -c Device sset Mic 8
 ExecStart=/usr/bin/python3 -u puppie_watcher.py
 Restart=always
 RestartSec=5
