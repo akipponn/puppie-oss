@@ -51,6 +51,11 @@ Run `stop` first when you want to start it by hand.
 
 Tested on the Pi: after a reboot the watcher started by itself and waited for a touch (2026-10-09).
 
+The service also sets the microphone gain each time it starts, because the gain goes back to 0 after a reboot.
+The line is `ExecStartPre=-/usr/bin/amixer -q -c Device sset Mic 8` (the range is 0 to 16).
+`Device` is the card name of the USB microphone, the same name used in `asound.conf`.
+If your microphone has another card name or control name, check with `arecord -l` and `amixer -c <card name> scontents`, and change the line.
+
 ## Emergency way in when Wi-Fi is lost: `wifi-watchdog/`
 
 If the Pi cannot reach its usual Wi-Fi for a while, it becomes a Wi-Fi access point named `Puppie-Setup`.
