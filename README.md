@@ -53,7 +53,7 @@ All settings live in `.env` (start from `.env.example`). Only the first two need
 | `PUPPIE_PERSONA` | `Dein Name ist Puppie. Du bist ein freundlicher Alltagsbegleiter und unterhältst dich gern mit allen.` | Who your Puppie is (its name and role), written in the language it speaks. |
 | `PUPPIE_GPT_MODEL` | `gpt-5.4-nano` | The conversation model. `gpt-5.4-mini` gives smarter replies but is a little slower and costs more. |
 | `PUPPIE_STT_LANGUAGE` | `de` | The language Puppie listens for (e.g. `en`, `ja`). Leave it empty for automatic detection, but short utterances may then be taken for another language. |
-| `PUPPIE_VOLUME` | `0.7` | Speaker volume, from `0.0` to `1.0`. |
+| `PUPPIE_VOLUME` | `0.7` | Speaker volume at start, from `0.0` to `1.0`. You can also ask Puppie to speak louder or quieter ("Lauter bitte", "Leiser bitte"); this lasts until Puppie restarts. |
 | `PUPPIE_IDLE_TIMEOUT_SEC` | `180` | Puppie ends the conversation quietly after this many seconds without anyone speaking. |
 | `PUPPIE_DEBUG` | `0` | `1` saves every conversation to `log_puppie_conversation.csv` and shows what was said in the log (`journalctl`). Keep it at `0` unless you are fixing a problem. |
 
