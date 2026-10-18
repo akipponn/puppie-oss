@@ -24,8 +24,8 @@ TOOLS = [{
                 "direction": {"type": "string", "enum": ["lauter", "leiser"]},
                 "steps": {
                     "type": "integer",
-                    "description": "Wie viele Stufen: 1 = etwas (Standard), 2 = deutlich, 3 = viel. "
-                                   "Für „ganz leise“ oder „so laut wie möglich“ 6.",
+                    "description": "Nur für leiser: wie viele Stufen. 1 = etwas (Standard), 2 = deutlich, 3 = viel, "
+                                   "6 = ganz leise. Lauter geht immer nur eine Stufe.",
                 },
             },
             "required": ["direction"],
@@ -44,7 +44,8 @@ def change_volume(direction, steps=1):
     if direction == "lauter":
         if level >= MAX_LEVEL:
             return "Die Lautstärke ist schon am höchsten."
-        level = min(MAX_LEVEL, level + STEP * steps)
+        # Only one step at a time, so a sudden loud voice does not startle anyone. Ask again for more
+        level = min(MAX_LEVEL, level + STEP)
     elif direction == "leiser":
         if level <= MIN_LEVEL:
             return "Die Lautstärke ist schon am niedrigsten."
