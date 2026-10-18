@@ -39,6 +39,7 @@ import subprocess
 import threading
 
 from logger import log_to_csv
+import volume
 import weather
 import puppie_memory
 
@@ -86,9 +87,6 @@ LLM_TIMEOUT_SEC = 8
 # and the transcription did not change (measured 2026-10-06)
 OPUS_BITRATE_KBPS = 24
 GPT_MAX_TOKENS = 1000
-
-# Volume (0.0-1.0). Adjust with e.g. PUPPIE_VOLUME=0.5 in .env
-VOLUME = float(os.getenv("PUPPIE_VOLUME", "0.7"))
 
 # End automatically when the user has not spoken for this many seconds. Adjust with e.g. PUPPIE_IDLE_TIMEOUT_SEC=60 in .env
 IDLE_TIMEOUT_SEC = float(os.getenv("PUPPIE_IDLE_TIMEOUT_SEC", "180"))
@@ -154,7 +152,7 @@ def play_goodbye():
     print("🛑 Ending.")
     set_led("speaking")
     pygame.mixer.music.load("./Voices/vicky_goodbye.wav")
-    pygame.mixer.music.set_volume(VOLUME)
+    pygame.mixer.music.set_volume(volume.level)
     pygame.mixer.music.play()
     while pygame.mixer.music.get_busy():
         time.sleep(0.1)
@@ -187,7 +185,7 @@ def play_audio(text):
 
         t0 = time.perf_counter()
         pygame.mixer.music.load("reply.wav")
-        pygame.mixer.music.set_volume(VOLUME)
+        pygame.mixer.music.set_volume(volume.level)
         set_led("speaking")
         pygame.mixer.music.play()
         print(f"⏱️ Time to playback start: {time.perf_counter() - t0:.2f}s")
@@ -312,12 +310,12 @@ def chat_with_assistant(client, user_input, conversation_history):
         t0 = time.perf_counter()
         response = llm.chat.completions.create(model=GPT_MODEL,
             messages=conversation_history, max_completion_tokens=GPT_MAX_TOKENS,
-            tools=weather.TOOLS,
+            tools=weather.TOOLS + volume.TOOLS,
             )
         print(f"⏱️ LLM: {time.perf_counter() - t0:.2f}s")
         message = response.choices[0].message
 
-        # If the LLM decides it was asked about the weather, look it up, pass the result back, and let it answer again
+        # If the LLM decides it was asked about the weather (or to change the volume), run the tool, pass the result back, and let it answer again
         if message.tool_calls:
             conversation_history.append({
                 "role": "assistant",
@@ -330,15 +328,16 @@ def chat_with_assistant(client, user_input, conversation_history):
             })
             for call in message.tool_calls:
                 t0 = time.perf_counter()
-                result = weather.call_tool(call.function.name, call.function.arguments)
+                tool = volume if call.function.name == "change_volume" else weather
+                result = tool.call_tool(call.function.name, call.function.arguments)
                 args = call.function.arguments if DEBUG else "..."
-                print(f"⏱️ Weather({args}): {time.perf_counter() - t0:.2f}s")
+                print(f"⏱️ {call.function.name}({args}): {time.perf_counter() - t0:.2f}s")
                 conversation_history.append({"role": "tool", "tool_call_id": call.id, "content": result})
             t0 = time.perf_counter()
             response = llm.chat.completions.create(model=GPT_MODEL,
                 messages=conversation_history, max_completion_tokens=GPT_MAX_TOKENS,
                 )
-            print(f"⏱️ LLM (reply from the weather result): {time.perf_counter() - t0:.2f}s")
+            print(f"⏱️ LLM (reply from the tool result): {time.perf_counter() - t0:.2f}s")
             message = response.choices[0].message
 
         # Add the assistant's reply to the history
@@ -374,7 +373,7 @@ def run_conversation():
             set_led("error")
             # Here, play "sorry, there is no internet" instead of ready.wav
             pygame.mixer.music.load("./Voices/vicky_noInternet.wav")
-            pygame.mixer.music.set_volume(VOLUME)
+            pygame.mixer.music.set_volume(volume.level)
             pygame.mixer.music.play()
             while pygame.mixer.music.get_busy():   # wait until playback finishes
                 time.sleep(0.1)
@@ -387,7 +386,7 @@ def run_conversation():
         print("🎤 Puppie started. Waiting the user to speak...")
 
         pygame.mixer.music.load("./Voices/vicky_ready.wav")
-        pygame.mixer.music.set_volume(VOLUME)
+        pygame.mixer.music.set_volume(volume.level)
         set_led("speaking")
         pygame.mixer.music.play()
         while pygame.mixer.music.get_busy():
