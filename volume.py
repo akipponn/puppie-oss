@@ -22,6 +22,11 @@ TOOLS = [{
             "type": "object",
             "properties": {
                 "direction": {"type": "string", "enum": ["lauter", "leiser"]},
+                "steps": {
+                    "type": "integer",
+                    "description": "Wie viele Stufen: 1 = etwas (Standard), 2 = deutlich, 3 = viel. "
+                                   "Für „ganz leise“ oder „so laut wie möglich“ 6.",
+                },
             },
             "required": ["direction"],
         },
@@ -29,17 +34,21 @@ TOOLS = [{
 }]
 
 
-def change_volume(direction):
-    """Change the volume one step and return the result as text (in German) to pass to the LLM"""
+def change_volume(direction, steps=1):
+    """Change the volume by the given number of steps and return the result as text (in German) to pass to the LLM"""
     global level
+    try:
+        steps = max(1, min(6, int(steps)))
+    except (TypeError, ValueError):
+        steps = 1
     if direction == "lauter":
         if level >= MAX_LEVEL:
             return "Die Lautstärke ist schon am höchsten."
-        level = min(MAX_LEVEL, level + STEP)
+        level = min(MAX_LEVEL, level + STEP * steps)
     elif direction == "leiser":
         if level <= MIN_LEVEL:
             return "Die Lautstärke ist schon am niedrigsten."
-        level = max(MIN_LEVEL, level - STEP)
+        level = max(MIN_LEVEL, level - STEP * steps)
     else:
         return "Unbekannte Richtung."
     print(f"🔊 Volume: {level:.2f}")
@@ -54,4 +63,4 @@ def call_tool(name, arguments_json):
         arguments = json.loads(arguments_json or "{}")
     except json.JSONDecodeError:
         arguments = {}
-    return change_volume(arguments.get("direction"))
+    return change_volume(arguments.get("direction"), arguments.get("steps", 1))
