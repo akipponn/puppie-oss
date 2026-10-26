@@ -96,6 +96,18 @@ This is what our own Puppie is built from. Other parts with the same specs shoul
 
 The speaker connects to the amplifier's + and − terminals, and the microphone goes into the Pi's USB port through the adapter. The audio setup on the Pi is described in [pi/README.md](pi/README.md).
 
+## Safety
+
+Puppie is a do-it-yourself project, not a finished or certified product. You build and use it at your own risk.
+
+- **Wiring:** Unplug the power before you connect or change any wires. The touch sensor and the LED go to 3.3 V, never to 5 V. A wrong or loose wire can damage the Pi or make parts hot.
+- **Power:** Use a proper 5 V power supply or a power bank from a known brand. Do not leave a power bank charging unattended inside the enclosure.
+- **Heat:** The Pi gets warm while it runs. Leave some air around it, and do not cover it with cloth or put it in a fully closed box.
+- **Children:** Puppie contains small parts and loose wires. Keep it away from small children, and let older children use it only with an adult nearby.
+- **AI replies:** Puppie's answers come from an AI and can be wrong. Puppie cannot call for help and must not be relied on for medical advice or emergencies.
+
+Puppie is provided "as is", without any warranty, as stated in the [MIT License](LICENSE). The author cannot take responsibility for any damage or injury that comes from building or using it.
+
 ## Privacy
 
 Puppie sends your conversations to the external services you signed up for yourself. Nothing is sent to us, the people who made Puppie.
