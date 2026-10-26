@@ -106,6 +106,8 @@ Puppie is a do-it-yourself project, not a finished or certified product. You bui
 - **Children:** Puppie contains small parts and loose wires. Keep it away from small children, and let older children use it only with an adult nearby.
 - **AI replies:** Puppie's answers come from an AI and can be wrong. Puppie cannot call for help and must not be relied on for medical advice or emergencies.
 
+Puppie is provided "as is", without any warranty, as stated in the [MIT License](LICENSE). The author cannot take responsibility for any damage or injury that comes from building or using it.
+
 ## Privacy
 
 Puppie sends your conversations to the external services you signed up for yourself. Nothing is sent to us, the people who made Puppie.
