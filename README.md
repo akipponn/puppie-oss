@@ -147,7 +147,7 @@ The "Sachsen 1100 – So geht sächsisch." logo is a protected trademark of the 
 
 ## Acknowledgements
 
-Puppie exists because Bona Mondo UG made its first development possible as part of the KIKO project, and hosts this repository. Thank you.
+Puppie exists because Bona Mondo UG made its first development possible as part of the KIKO project. Thank you.
 
 KIKO ("KIKO – Persönlicher K.I.-Chatbot für Seniorinnen und Senioren", Bona Mondo UG, July 2024 to April 2025) was funded as one of the [model projects of the Zukunftsplattform für soziale Innovationen](https://www.soziales.sachsen.de/gefoerderte-modellvorhaben.html), a programme of the Saxon State Ministry for Social Affairs.
 
