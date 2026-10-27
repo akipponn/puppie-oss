@@ -25,8 +25,8 @@ On a Raspberry Pi Zero 2 W with Raspberry Pi OS Lite (64-bit):
 ```bash
 sudo apt update
 sudo apt install -y git portaudio19-dev python3-dev build-essential
-git clone https://github.com/akipponn/puppie-oss.git
-cd puppie-oss
+git clone https://github.com/akipponn/puppie-oss.git ~/puppie
+cd ~/puppie
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
