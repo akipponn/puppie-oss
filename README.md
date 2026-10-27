@@ -23,7 +23,10 @@ Puppie needs an internet connection, and you need your own API keys for OpenAI a
 On a Raspberry Pi Zero 2 W with Raspberry Pi OS Lite (64-bit):
 
 ```bash
-sudo apt install -y portaudio19-dev python3-dev build-essential
+sudo apt update
+sudo apt install -y git portaudio19-dev python3-dev build-essential
+git clone https://github.com/akipponn/puppie-oss.git
+cd puppie-oss
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
