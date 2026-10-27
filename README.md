@@ -20,7 +20,29 @@ Puppie needs an internet connection, and you need your own API keys for OpenAI a
 
 ## Quick start
 
-On a Raspberry Pi Zero 2 W with Raspberry Pi OS Lite (64-bit):
+You do not need a screen or a keyboard for the Pi. Everything is done from your computer.
+
+### Prepare the SD card
+
+1. Install [Raspberry Pi Imager](https://www.raspberrypi.com/software/) on your computer.
+2. Choose the device **Raspberry Pi Zero 2 W** and the OS **Raspberry Pi OS Lite (64-bit)** (under "Raspberry Pi OS (other)"), then your SD card.
+3. In the customisation settings, set:
+   - a host name (for example `puppie`)
+   - a user name and password
+   - your Wi-Fi name and password. The Pi Zero 2 W only connects to **2.4 GHz** Wi-Fi.
+   - **Enable SSH** (with password). Without it, the Pi joins the Wi-Fi but you cannot log in.
+4. Write the card, put it into the Pi and power it on. The first start takes a few minutes.
+5. From your computer, log in (use your own host name and user name):
+
+   ```bash
+   ssh your-user-name@puppie.local
+   ```
+
+If the Pi does not show up, check the Wi-Fi name and password. The Wi-Fi settings are only read on the first start, so the easiest fix is to write the card again.
+
+### Install Puppie
+
+On the Pi:
 
 ```bash
 sudo apt update
