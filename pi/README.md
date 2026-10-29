@@ -70,9 +70,9 @@ If your microphone has another card name or control name, check with `arecord -l
 If the Pi cannot reach its usual Wi-Fi for a while, it becomes a Wi-Fi access point named `Puppie-Setup`.
 Connect your computer to it and you can log in with `ssh <user name>@10.42.0.1` to fix things.
 
-- Every 1 minute 30 seconds it checks the connection and reconnects if it is down
+- Every 1 minute 30 seconds it checks the connection; if it is down, it tries every Wi-Fi the Pi has saved (`nmcli connection show`)
 - After 3 failures in a row it brings up `Puppie-Setup`
-- While `Puppie-Setup` is up, it tries the usual Wi-Fi only once every 8 minutes (each try takes the access point down for a moment, so trying often would make it hard to connect)
+- While `Puppie-Setup` is up, it tries the saved Wi-Fi only once every 8 minutes (each try takes the access point down for a moment, so trying often would make it hard to connect)
 
 | File | Location |
 |---|---|
@@ -80,23 +80,7 @@ Connect your computer to it and you can log in with `ssh <user name>@10.42.0.1` 
 | `puppie-wifi-watchdog.service` | `/etc/systemd/system/` |
 | `puppie-wifi-watchdog.timer` | `/etc/systemd/system/` |
 
-To install:
-
-1. In `puppie-wifi-watchdog.sh`, set `HOME_CONN` to the connection name of your usual Wi-Fi
-2. Create the connection for the access point (choose your own password, 8 characters or more)
-
-   ```bash
-   sudo nmcli connection add type wifi ifname wlan0 con-name Puppie-Setup autoconnect no \
-     ssid Puppie-Setup wifi.mode ap wifi.band bg ipv4.method shared \
-     wifi-sec.key-mgmt wpa-psk wifi-sec.psk "<password>"
-   ```
-
-3. Enable the timer
-
-   ```bash
-   sudo systemctl daemon-reload
-   sudo systemctl enable --now puppie-wifi-watchdog.timer
-   ```
+To install, and to add another Wi-Fi, follow [Set up the emergency Wi-Fi](../README.md#set-up-the-emergency-wi-fi) and [Change the Wi-Fi](../README.md#change-the-wi-fi) in the Quick start.
 
 To see whether it is running, use `journalctl -u puppie-wifi-watchdog.service`.
 

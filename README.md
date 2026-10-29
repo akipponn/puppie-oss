@@ -148,13 +148,11 @@ Touch again to end the conversation. From now on, just power the Pi on and wait 
 
 Without a screen and keyboard, you cannot reach the Pi when its Wi-Fi is gone (the router changed, the phone hotspot is off, you took Puppie somewhere else). So if the Pi cannot reach its usual Wi-Fi for about 5 minutes, it opens its own Wi-Fi called `Puppie-Setup`, and you can log in through it. Please do not skip this step.
 
-1. Install the Wi-Fi watchdog. It remembers the Wi-Fi the Pi is on right now as the usual one.
+1. Install the Wi-Fi watchdog. When the Wi-Fi is lost, it tries every Wi-Fi the Pi has saved.
 
    ```bash
    cd ~/puppie
-   HOME_CONN=$(nmcli -t -g GENERAL.CONNECTION device show wlan0)
-   sed "s|YOUR-WIFI-NAME|$HOME_CONN|" pi/wifi-watchdog/puppie-wifi-watchdog.sh | sudo tee /usr/local/sbin/puppie-wifi-watchdog.sh >/dev/null
-   sudo chmod +x /usr/local/sbin/puppie-wifi-watchdog.sh
+   sudo install -m 755 pi/wifi-watchdog/puppie-wifi-watchdog.sh /usr/local/sbin/
    sudo cp pi/wifi-watchdog/puppie-wifi-watchdog.service pi/wifi-watchdog/puppie-wifi-watchdog.timer /etc/systemd/system/
    sudo systemctl daemon-reload
    sudo systemctl enable --now puppie-wifi-watchdog.timer
@@ -179,6 +177,19 @@ ssh your-user-name@10.42.0.1
 `ssh your-user-name@puppie.local` (your own host name) usually works too. If ssh warns that the `REMOTE HOST IDENTIFICATION HAS CHANGED`, you have used another Pi at this address before; run `ssh-keygen -R 10.42.0.1` and try again.
 
 When the usual Wi-Fi is back, the Pi returns to it by itself within about 8 minutes. More about the watchdog: [pi/README.md](pi/README.md#emergency-way-in-when-wi-fi-is-lost-wifi-watchdog).
+
+### Change the Wi-Fi
+
+To use Puppie with another Wi-Fi (a new router, another home, a different phone), let the Pi save it. Log in (through the usual Wi-Fi, or through `Puppie-Setup` if the old Wi-Fi is already gone) and run:
+
+```bash
+read -rp "Wi-Fi name: " SSID; read -rsp "Wi-Fi password: " P; echo
+sudo nmcli connection add type wifi con-name "$SSID" ssid "$SSID" wifi-sec.key-mgmt wpa-psk wifi-sec.psk "$P"
+unset P
+sudo reboot
+```
+
+Type the Wi-Fi name exactly, including capital letters and spaces. The Pi keeps the Wi-Fi it already knew, so you can also do this before you take Puppie somewhere else, and it will connect to whichever one is there. Restart with `sudo reboot` rather than pulling the power: if the power goes off right after saving, the new Wi-Fi may not be saved.
 
 ### Getting an AWS key
 
