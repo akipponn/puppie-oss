@@ -22,6 +22,14 @@ Puppie needs an internet connection, and you need your own API keys for OpenAI a
 
 You do not need a screen or a keyboard for the Pi. Everything is done from your computer.
 
+### Wire the parts
+
+With the power **unplugged**, connect the parts to the Pi as shown in [Wiring](#wiring) (the parts are listed under [Hardware](#hardware)). Please read [Safety](#safety) first.
+
+- The touch sensor and the LED go to 3.3 V, never to 5 V.
+- Set the touch sensor to toggle mode by bridging the jumper pad on its board.
+- Put the microphone into the Pi's USB port (the one marked USB, not PWR) through the adapter.
+
 ### Prepare the SD card
 
 1. Install [Raspberry Pi Imager](https://www.raspberrypi.com/software/) on your computer.
@@ -111,7 +119,30 @@ Then:
    python3 puppie_main.py
    ```
 
-Next, make Puppie start on power-up and wait for a touch: see [Start the watcher on power-up](pi/README.md#start-the-watcher-on-power-up-watcher) in pi/README.md.
+   Speak to Puppie in German (for example "Hallo, wie geht's?"). Say "Tschüss" to end, or press `Ctrl+C`. The touch sensor and the LED do not work yet; that comes next.
+
+### Start Puppie on power-up
+
+From now on, Puppie starts by itself when the Pi is powered on and waits for a touch. A small program called the watcher looks after the touch sensor and the LED.
+
+```bash
+cd ~/puppie
+sed "s/YOUR-USER-NAME/$USER/g" pi/watcher/puppie-watcher.service | sudo tee /etc/systemd/system/puppie-watcher.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now puppie-watcher.service
+```
+
+After about 30 seconds, touch the sensor:
+
+| LED | Meaning |
+|---|---|
+| Pulsing white | Getting ready |
+| Green | Listening: go ahead and speak |
+| Pulsing blue | Thinking |
+| Blue | Puppie is speaking |
+| Red | In trouble (no network, crashed) |
+
+Touch again to end the conversation. From now on, just power the Pi on and wait about a minute; you do not need to log in. More about the watcher (how to stop it, how to read its log): [pi/README.md](pi/README.md#start-the-watcher-on-power-up-watcher).
 
 ### Getting an AWS key
 
