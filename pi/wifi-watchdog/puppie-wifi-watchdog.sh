@@ -2,8 +2,7 @@
 set -u
 
 IFACE="wlan0"
-# NetworkManager connection name of the Wi-Fi you normally use (check with: nmcli connection show)
-HOME_CONN="YOUR-WIFI-NAME"
+# The Pi returns to any Wi-Fi it has saved (nmcli connection show), so there is no Wi-Fi name to set here
 AP_CONN="Puppie-Setup"
 STATE_DIR="/var/lib/puppie-wifi-watchdog"
 FAIL_COUNT_FILE="$STATE_DIR/fail_count"
@@ -23,7 +22,28 @@ check_connectivity() {
     ping -c 2 -W 2 "$gw" >/dev/null 2>&1
 }
 
-current_conn=$(nmcli -t -g GENERAL.CONNECTION device show "$IFACE" 2>/dev/null)
+# Try every saved Wi-Fi except the AP, one after another, until one connects.
+# UUIDs are used because Wi-Fi names can contain spaces and colons
+connect_saved_wifi() {
+    local uuid type
+    nmcli device wifi rescan ifname "$IFACE" >/dev/null 2>&1
+    sleep 3
+    while IFS=: read -r uuid type; do
+        [ "$type" = "802-11-wireless" ] || continue
+        [ "$(nmcli -g connection.id connection show "$uuid" 2>/dev/null)" = "$AP_CONN" ] && continue
+        if timeout 15 nmcli connection up uuid "$uuid" >/dev/null 2>&1; then
+            sleep 3
+            check_connectivity && return 0
+        fi
+    done < <(nmcli -t -f UUID,TYPE connection show)
+    return 1
+}
+
+current_wifi_name() {
+    nmcli -t -g GENERAL.CONNECTION device show "$IFACE" 2>/dev/null
+}
+
+current_conn=$(current_wifi_name)
 
 if [ "$current_conn" = "$AP_CONN" ]; then
     now=$(date +%s)
@@ -33,12 +53,10 @@ if [ "$current_conn" = "$AP_CONN" ]; then
         exit 0
     fi
     echo "$now" > "$AP_LAST_TRY_FILE"
-    echo "Currently in AP mode (${AP_CONN}). Trying to return to the usual Wi-Fi."
+    echo "Currently in AP mode (${AP_CONN}). Trying to return to a saved Wi-Fi."
     nmcli connection down "$AP_CONN" >/dev/null 2>&1
-    timeout 10 nmcli connection up "$HOME_CONN" >/dev/null 2>&1
-    sleep 3
-    if check_connectivity; then
-        echo "Back on the usual Wi-Fi (${HOME_CONN})."
+    if connect_saved_wifi; then
+        echo "Back on Wi-Fi ($(current_wifi_name))."
         echo 0 > "$FAIL_COUNT_FILE"
         rm -f "$AP_LAST_TRY_FILE"
     else
@@ -54,11 +72,9 @@ if check_connectivity; then
 fi
 
 echo "No connectivity. Trying to reconnect."
-timeout 10 nmcli connection up "$HOME_CONN" >/dev/null 2>&1
-sleep 3
 
-if check_connectivity; then
-    echo "Reconnected."
+if connect_saved_wifi; then
+    echo "Reconnected ($(current_wifi_name))."
     echo 0 > "$FAIL_COUNT_FILE"
     exit 0
 fi
