@@ -100,4 +100,4 @@ To install:
 
 To see whether it is running, use `journalctl -u puppie-wifi-watchdog.service`.
 
-The command in step 2 was written down from the settings of a working Pi; it has not been run in exactly this form.
+Tested on a fresh SD card (2026-10-29): with the phone hotspot off, `Puppie-Setup` came up after about 5 minutes and `ssh` to `10.42.0.1` worked; with the hotspot back on, the Pi returned to it by itself. The [Quick start](../README.md#set-up-the-emergency-wi-fi) has the same steps as ready-to-paste commands.

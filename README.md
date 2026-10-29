@@ -144,6 +144,42 @@ After about 30 seconds, touch the sensor:
 
 Touch again to end the conversation. From now on, just power the Pi on and wait about a minute; you do not need to log in. More about the watcher (how to stop it, how to read its log): [pi/README.md](pi/README.md#start-the-watcher-on-power-up-watcher).
 
+### Set up the emergency Wi-Fi
+
+Without a screen and keyboard, you cannot reach the Pi when its Wi-Fi is gone (the router changed, the phone hotspot is off, you took Puppie somewhere else). So if the Pi cannot reach its usual Wi-Fi for about 5 minutes, it opens its own Wi-Fi called `Puppie-Setup`, and you can log in through it. Please do not skip this step.
+
+1. Install the Wi-Fi watchdog. It remembers the Wi-Fi the Pi is on right now as the usual one.
+
+   ```bash
+   cd ~/puppie
+   HOME_CONN=$(nmcli -t -g GENERAL.CONNECTION device show wlan0)
+   sed "s|YOUR-WIFI-NAME|$HOME_CONN|" pi/wifi-watchdog/puppie-wifi-watchdog.sh | sudo tee /usr/local/sbin/puppie-wifi-watchdog.sh >/dev/null
+   sudo chmod +x /usr/local/sbin/puppie-wifi-watchdog.sh
+   sudo cp pi/wifi-watchdog/puppie-wifi-watchdog.service pi/wifi-watchdog/puppie-wifi-watchdog.timer /etc/systemd/system/
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now puppie-wifi-watchdog.timer
+   ```
+
+2. Create the `Puppie-Setup` Wi-Fi. Choose a new password for it (8 characters or more; not your usual Wi-Fi password) and write it down. What you type is not shown on the screen.
+
+   ```bash
+   read -rsp "Password for Puppie-Setup (8+ characters): " P; echo
+   sudo nmcli connection add type wifi ifname wlan0 con-name Puppie-Setup autoconnect no ssid Puppie-Setup wifi.mode ap wifi.band bg ipv4.method shared wifi-sec.key-mgmt wpa-psk wifi-sec.psk "$P"
+   unset P
+   ```
+
+   It is ready when you see `successfully added`.
+
+When you need it: connect your computer to the Wi-Fi `Puppie-Setup` with that password, then log in:
+
+```bash
+ssh your-user-name@10.42.0.1
+```
+
+`ssh your-user-name@puppie.local` (your own host name) usually works too. If ssh warns that the `REMOTE HOST IDENTIFICATION HAS CHANGED`, you have used another Pi at this address before; run `ssh-keygen -R 10.42.0.1` and try again.
+
+When the usual Wi-Fi is back, the Pi returns to it by itself within about 8 minutes. More about the watchdog: [pi/README.md](pi/README.md#emergency-way-in-when-wi-fi-is-lost-wifi-watchdog).
+
 ### Getting an AWS key
 
 TODO: step-by-step guide (an IAM user that can only use Polly). Until then, see Amazon's pages:
