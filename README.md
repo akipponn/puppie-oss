@@ -58,14 +58,52 @@ cp .env.example .env
 Then:
 
 1. Put your OpenAI API key and your city into `.env`. If you like, also give your Puppie its own name and role there (`PUPPIE_PERSONA`). All settings are listed under [Settings](#settings).
-2. Put your AWS credentials into `~/.aws/credentials` (Polly reads them from there, not from `.env`).
-3. Start one conversation by hand:
+
+   ```bash
+   nano .env
+   ```
+
+   Replace `your-openai-api-key-here` and `your-city-here` with your own values (no quotes needed). To save, press `Ctrl+O`, then `Enter`; to close, press `Ctrl+X`.
+
+2. Put your AWS credentials into `~/.aws/credentials` (Polly reads them from there, not from `.env`). If you do not have an AWS key yet, see [Getting an AWS key](#getting-an-aws-key).
+
+   ```bash
+   mkdir -p ~/.aws && nano ~/.aws/credentials
+   ```
+
+   Write these three lines with your own key, then save and close the same way:
+
+   ```ini
+   [default]
+   aws_access_key_id = your-access-key-id
+   aws_secret_access_key = your-secret-access-key
+   ```
+
+   If you already use AWS on your computer, you can copy these lines from `~/.aws/credentials` there.
+
+3. Make both files readable only by you. Otherwise other users on the Pi can read your keys.
+
+   ```bash
+   chmod 600 .env ~/.aws/credentials
+   ```
+
+4. Start one conversation by hand:
 
    ```bash
    python3 puppie_main.py
    ```
 
 To make Puppie start on power-up and wait for a touch, and to set up the speaker and microphone, see [pi/README.md](pi/README.md).
+
+### Getting an AWS key
+
+TODO: step-by-step guide (an IAM user that can only use Polly). Until then, see Amazon's pages:
+
+- [Getting started with Amazon Polly](https://docs.aws.amazon.com/polly/latest/dg/getting-started.html)
+- [Identity and access management for Amazon Polly](https://docs.aws.amazon.com/polly/latest/dg/security-iam.html)
+- [Managing access keys for IAM users](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html)
+
+Polly in Puppie uses the region `eu-central-1` (Frankfurt), so the credentials file only needs the key.
 
 ## Settings
 
