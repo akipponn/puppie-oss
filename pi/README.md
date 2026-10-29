@@ -26,15 +26,24 @@ If the watcher stops, it is started again after 5 seconds.
 |---|---|
 | `puppie-watcher.service` | `/etc/systemd/system/` |
 
-To install:
+To install (on the Pi, in `~/puppie`):
 
-1. In `puppie-watcher.service`, replace `YOUR-USER-NAME` (2 places) with the user name on your Pi
+1. Copy the file into place. This also replaces `YOUR-USER-NAME` (2 places) with your user name (`$USER`).
+
+   ```bash
+   sed "s/YOUR-USER-NAME/$USER/g" pi/watcher/puppie-watcher.service | sudo tee /etc/systemd/system/puppie-watcher.service
+   ```
+
 2. Enable it
 
    ```bash
    sudo systemctl daemon-reload
    sudo systemctl enable --now puppie-watcher.service
    ```
+
+3. After about 30 seconds, touch the sensor. The LED pulses white, then turns green: go ahead and speak.
+
+The log shows many `ALSA lib ...` and `jack server is not running` lines at start. They are harmless; the watcher is ready when it shows `Standby. Waiting for a touch...`.
 
 To stop it, start it, or watch what it is doing:
 
@@ -49,7 +58,7 @@ To turn off the automatic start, run `sudo systemctl disable --now puppie-watche
 If you start `python3 puppie_watcher.py` by hand while the service is running, the two fight over the touch sensor and the LED and neither works properly.
 Run `stop` first when you want to start it by hand.
 
-Tested on the Pi: after a reboot the watcher started by itself and waited for a touch (2026-10-09).
+Tested on the Pi: after a reboot the watcher started by itself and waited for a touch (2026-10-09; again on a fresh SD card with the steps above, 2026-10-29).
 
 The service also sets the microphone gain each time it starts, because the gain goes back to 0 after a reboot.
 The line is `ExecStartPre=-/usr/bin/amixer -q -c Device sset Mic 8` (the range is 0 to 16).
