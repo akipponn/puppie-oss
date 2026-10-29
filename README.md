@@ -87,7 +87,25 @@ Then:
    chmod 600 .env ~/.aws/credentials
    ```
 
-4. Start one conversation by hand:
+4. Set up the speaker and the microphone, then restart the Pi. Without this you hear nothing.
+
+   ```bash
+   sudo cp pi/asound.conf /etc/asound.conf
+   printf "\ndtparam=i2s=on\ndtoverlay=max98357a\n" | sudo tee -a /boot/firmware/config.txt
+   sudo reboot
+   ```
+
+   After the restart, log in again and turn up the microphone (it starts at 0, so Puppie hears nothing):
+
+   ```bash
+   amixer -c Device sset Mic 8
+   cd ~/puppie
+   source .venv/bin/activate
+   ```
+
+   More about these settings: [pi/README.md](pi/README.md).
+
+5. Start one conversation by hand:
 
    ```bash
    python3 puppie_main.py
