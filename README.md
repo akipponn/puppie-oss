@@ -111,7 +111,7 @@ Then:
    python3 puppie_main.py
    ```
 
-To make Puppie start on power-up and wait for a touch, and to set up the speaker and microphone, see [pi/README.md](pi/README.md).
+Next, make Puppie start on power-up and wait for a touch: see [Start the watcher on power-up](pi/README.md#start-the-watcher-on-power-up-watcher) in pi/README.md.
 
 ### Getting an AWS key
 
