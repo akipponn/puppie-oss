@@ -17,6 +17,13 @@ dtparam=i2s=on
 dtoverlay=max98357a
 ```
 
+## Wi-Fi power saving off: `puppie-wifi-powersave-off.conf`
+
+Location: `/etc/NetworkManager/conf.d/`
+
+Turns off Wi-Fi power saving for every saved Wi-Fi. It is on by default, and the Pi Zero 2 W can then be slow to answer over Wi-Fi.
+It takes effect after a reboot. To check, run `iw wlan0 get power_save`; it should say `Power save: off`.
+
 ## Start the watcher on power-up: `watcher/`
 
 When the Pi is powered on, the watcher program `puppie_watcher.py` starts by itself and waits for a touch.
