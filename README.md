@@ -71,7 +71,16 @@ Then:
    nano .env
    ```
 
-   Replace `your-openai-api-key-here` and `your-city-here` with your own values (no quotes needed). To save, press `Ctrl+O`, then `Enter`; to close, press `Ctrl+X`.
+   Replace `your-openai-api-key-here` and `your-city-here` with your own values (no quotes needed). Keep the setting name and the `=`, and do not put spaces around the `=`. After editing, those two lines look like this (with your own key):
+
+   ```ini
+   OPENAI_API_KEY=sk-proj-AbCd1234...
+   PUPPIE_HOME_CITY=Dresden
+   ```
+
+   Lines starting with `#` are only notes and are ignored. To use an optional setting such as `PUPPIE_PERSONA`, remove the `#` at the start of its line and change the text.
+
+   To save, press `Ctrl+O`, then `Enter`; to close, press `Ctrl+X`.
 
 2. Put your AWS credentials into `~/.aws/credentials` (Polly reads them from there, not from `.env`). If you do not have an AWS key yet, see [Getting an AWS key](#getting-an-aws-key).
 
