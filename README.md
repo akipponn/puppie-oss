@@ -56,7 +56,7 @@ On the Pi:
 
 ```bash
 sudo apt update
-sudo apt install -y git portaudio19-dev python3-dev build-essential
+sudo apt install -y git portaudio19-dev python3-dev build-essential opus-tools
 git clone https://github.com/akipponn/puppie-oss.git ~/puppie
 cd ~/puppie
 python3 -m venv .venv
@@ -130,7 +130,12 @@ Then:
    python3 puppie_main.py
    ```
 
-   Speak to Puppie in German (for example "Hallo, wie geht's?"). Say "Tschüss" to end, or press `Ctrl+C`. The touch sensor and the LED do not work yet; that comes next.
+   Speak to Puppie in German (for example "Hallo, wie geht's?"). Say "Tschüss" to end. You can also stop the program at any time with `Ctrl+C`. The touch sensor and the LED do not work yet; that comes next.
+
+   While it runs, Puppie prints what it is doing on the screen. Lines starting with ⚠️ show a problem. For example:
+
+   - `OpenAI warm-up failed` or `STT error` with `Incorrect API key provided`: the OpenAI key in `.env` is wrong. Check it for typos and for extra characters at the end.
+   - `Polly warm-up failed`: check your AWS key in `~/.aws/credentials`.
 
 ### Start Puppie on power-up
 
