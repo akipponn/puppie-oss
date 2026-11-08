@@ -34,11 +34,13 @@ With the power **unplugged**, connect the parts to the Pi as shown in [Wiring](#
 
 1. Install [Raspberry Pi Imager](https://www.raspberrypi.com/software/) on your computer.
 2. Choose the device **Raspberry Pi Zero 2 W** and the OS **Raspberry Pi OS Lite (64-bit)** (under "Raspberry Pi OS (other)"), then your SD card.
-3. In the customisation settings, set:
-   - a host name (for example `puppie`)
-   - a user name and password
-   - your Wi-Fi name and password. The Pi Zero 2 W only connects to **2.4 GHz** Wi-Fi.
-   - **Enable SSH** (with password). Without it, the Pi joins the Wi-Fi but you cannot log in.
+3. Go through the Customisation steps:
+   - **Hostname**: for example `puppie`
+   - **Localisation**: your time zone and keyboard layout
+   - **User**: a user name and password
+   - **Wi-Fi**: your Wi-Fi name and password. The Pi Zero 2 W only connects to **2.4 GHz** Wi-Fi.
+   - **Remote access**: **enable SSH** (with password). Without it, the Pi joins the Wi-Fi but you cannot log in.
+   - **Raspberry Pi Connect**: leave it off. Puppie does not need it.
 4. Write the card, put it into the Pi and power it on. The first start takes a few minutes.
 5. From your computer, log in (use your own host name and user name):
 
