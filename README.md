@@ -106,11 +106,12 @@ Then:
    chmod 600 .env ~/.aws/credentials
    ```
 
-4. Set up the speaker and the microphone, then restart the Pi. Without this you hear nothing.
+4. Set up the speaker and the microphone, turn off Wi-Fi power saving, then restart the Pi. Without the first two lines you hear nothing; the third line keeps the Wi-Fi from slowing Puppie down.
 
    ```bash
    sudo cp pi/asound.conf /etc/asound.conf
    printf "\ndtparam=i2s=on\ndtoverlay=max98357a\n" | sudo tee -a /boot/firmware/config.txt
+   sudo cp pi/puppie-wifi-powersave-off.conf /etc/NetworkManager/conf.d/
    sudo reboot
    ```
 
