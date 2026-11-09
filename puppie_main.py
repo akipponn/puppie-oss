@@ -65,13 +65,7 @@ signal.signal(signal.SIGTERM, _handle_sigterm)
 DEFAULT_PERSONA = "Dein Name ist Puppie. Du bist ein freundlicher Alltagsbegleiter und unterhältst dich gern mit allen."
 PUPPIE_PERSONA = os.getenv("PUPPIE_PERSONA") or DEFAULT_PERSONA
 PUPPIE_SETTING_TEXT = PUPPIE_PERSONA + " Bitte antworte in etwa 20 Wörtern und halte deine Antworten einfach und verständlich. Dies ist ein gesprochenes Gespräch: Man spricht mit dir und hört deine Antwort. Sprich deshalb nie von „schreiben“ oder „lesen“. Beginne direkt mit deiner Antwort, ohne Einleitung wie „Ich sage:“."
-# Puppie's own birthday, e.g. PUPPIE_BIRTHDAY="9. November" in .env (written in the language it speaks).
-# Puppie knows today's date, so it can tell when the day has come
-PUPPIE_BIRTHDAY = os.getenv("PUPPIE_BIRTHDAY", "").strip()
-if PUPPIE_BIRTHDAY:
-    PUPPIE_SETTING_TEXT += (f" Dein Geburtstag ist am {PUPPIE_BIRTHDAY}. Ist heute dein Geburtstag, freust du dich darüber."
-                            " Sonst erwähnst du ihn nur, wenn jemand danach fragt.")
-FALLBACK_REPLY ="Entschuldigung, das habe ich gerade nicht verstanden. Kannst du das bitte noch einmal sagen?"
+FALLBACK_REPLY = "Entschuldigung, das habe ich gerade nicht verstanden. Kannst du das bitte noch einmal sagen?"
 STOP_PHRASES = ["tschüss", "auf wiedersehen", "bis bald", "mach's gut"]
 # Conversation model. The default nano is the fastest and cheapest; e.g. PUPPIE_GPT_MODEL=gpt-5.4-mini in .env
 # gives smarter replies but answers a little more slowly and costs more

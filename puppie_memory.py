@@ -32,6 +32,40 @@ def _today():
     return f"{WEEKDAYS[today.weekday()]}, {today.day}.{today.month}.{today.year}"
 
 
+MONTHS = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli",
+          "August", "September", "Oktober", "November", "Dezember"]
+
+
+def _parse_birthday(value):
+    """PUPPIE_BIRTHDAY (MM-DD) as (month, day). None if empty or not readable"""
+    value = value.strip()
+    if not value:
+        return None
+    try:
+        month, day = (int(part) for part in value.split("-"))
+        datetime.date(2000, month, day)  # a leap year, so 02-29 is allowed
+        return month, day
+    except ValueError:
+        print(f"⚠️ PUPPIE_BIRTHDAY={value!r} is not MM-DD (e.g. 11-09), ignoring it")
+        return None
+
+
+def _birthday_text():
+    """Puppie's own birthday. Whether it is today is decided here, since the LLM does not compare dates reliably"""
+    # Read here (not at import), because .env is loaded after this module is imported
+    birthday = _parse_birthday(os.getenv("PUPPIE_BIRTHDAY", ""))
+    if not birthday:
+        return ""
+    month, day = birthday
+    today = datetime.date.today()
+    text = f"\n\nDein Geburtstag ist am {day}. {MONTHS[month - 1]}."
+    if (today.month, today.day) == birthday:
+        text += " Heute ist dein Geburtstag! Du freust dich darüber."
+    else:
+        text += " Erwähne ihn nur, wenn jemand danach fragt."
+    return text
+
+
 def load():
     try:
         with open(MEMORY_FILE, encoding="utf-8") as file:
@@ -42,7 +76,7 @@ def load():
 
 def for_system_prompt():
     """Text to add after the system prompt (today's date and the memory so far)"""
-    text = f"\n\nHeute ist {_today()}."
+    text = f"\n\nHeute ist {_today()}." + _birthday_text()
     memory = load()
     if memory:
         text += ("\n\nDas weißt du aus früheren Gesprächen mit dieser Person. "
