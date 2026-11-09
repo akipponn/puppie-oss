@@ -38,13 +38,15 @@ import socket
 import subprocess
 import threading
 
+# Read .env before importing our own modules: volume and weather read their settings when imported
+load_dotenv()
+
 from logger import log_to_csv
 import volume
 import weather
 import puppie_memory
 
 # === Setup ===
-load_dotenv()  # read .env
 
 # Debug mode: PUPPIE_DEBUG=1 in .env saves the conversation to log_puppie_conversation.csv
 # and prints what was said to the log. Off by default, so only timings and lengths are logged.
