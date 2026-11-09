@@ -227,6 +227,7 @@ All settings live in `.env` (start from `.env.example`). Only the first two need
 | `OPENAI_API_KEY` | (required) | Your OpenAI API key, used for speech to text and the conversation. |
 | `PUPPIE_HOME_CITY` | `Leipzig` | The city used for the weather forecast when you do not name one. |
 | `PUPPIE_PERSONA` | `Dein Name ist Puppie. Du bist ein freundlicher Alltagsbegleiter und unterhältst dich gern mit allen.` | Who your Puppie is (its name and role), written in the language it speaks. |
+| `PUPPIE_BIRTHDAY` | (none) | Your Puppie's birthday, written in the language it speaks (e.g. `9. November`). Puppie remembers it and knows when the day has come. |
 | `PUPPIE_GPT_MODEL` | `gpt-5.4-nano` | The conversation model. `gpt-5.4-mini` gives smarter replies but is a little slower and costs more. |
 | `PUPPIE_STT_LANGUAGE` | `de` | The language Puppie listens for (e.g. `en`, `ja`). Leave it empty for automatic detection, but short utterances may then be taken for another language. |
 | `PUPPIE_VOLUME` | `0.7` | Speaker volume at start, from `0.0` to `1.0`. You can also ask Puppie to speak louder or quieter ("Lauter bitte", "Leiser bitte"); this lasts until Puppie restarts. |
