@@ -69,20 +69,19 @@ cp .env.example .env
 
 Then:
 
-1. Put your OpenAI API key and your city into `.env`. If you like, also give your Puppie its own name and role there (`PUPPIE_PERSONA`). All settings are listed under [Settings](#settings).
+1. Put your OpenAI API key into `.env`. If you like, also set your city for the weather (`PUPPIE_HOME_CITY`) and give your Puppie its own name and role (`PUPPIE_PERSONA`). All settings are listed under [Settings](#settings).
 
    ```bash
    nano .env
    ```
 
-   Replace `your-openai-api-key-here` and `your-city-here` with your own values (no quotes needed). Keep the setting name and the `=`, and do not put spaces around the `=`. After editing, those two lines look like this (with your own key):
+   Replace `your-openai-api-key-here` with your own key (no quotes needed). Keep the setting name and the `=`, and do not put spaces around the `=`. After editing, the line looks like this (with your own key):
 
    ```ini
    OPENAI_API_KEY=sk-proj-AbCd1234...
-   PUPPIE_HOME_CITY=Dresden
    ```
 
-   Lines starting with `#` are only notes and are ignored. To use an optional setting such as `PUPPIE_PERSONA`, remove the `#` at the start of its line and change the text.
+   Lines starting with `#` are only notes and are ignored. To use an optional setting such as `PUPPIE_HOME_CITY`, remove the `#` at the start of its line and change the text, for example `PUPPIE_HOME_CITY=Dresden`.
 
    To save, press `Ctrl+O`, then `Enter`; to close, press `Ctrl+X`.
 
@@ -222,12 +221,12 @@ Polly in Puppie uses the region `eu-central-1` (Frankfurt), so the credentials f
 
 ## Settings
 
-All settings live in `.env` (start from `.env.example`). Only the first two need to be filled in; the rest are optional and fall back to the default shown.
+All settings live in `.env` (start from `.env.example`). Only `OPENAI_API_KEY` needs to be filled in; the rest are optional and fall back to the default shown.
 
 | Setting | Default | What it does |
 |---|---|---|
 | `OPENAI_API_KEY` | (required) | Your OpenAI API key, used for speech to text and the conversation. |
-| `PUPPIE_HOME_CITY` | `Leipzig` | The city used for the weather forecast when you do not name one. |
+| `PUPPIE_HOME_CITY` | (none) | The city used for the weather forecast when you do not name one. Without it, Puppie asks which city. |
 | `PUPPIE_PERSONA` | `Dein Name ist Puppie. Du bist ein freundlicher Alltagsbegleiter und unterhältst dich gern mit allen.` | Who your Puppie is (its name and role), written in the language it speaks. |
 | `PUPPIE_BIRTHDAY` | (none) | Your Puppie's birthday as month-day, `MM-DD` (e.g. `11-09` for 9 November). Puppie remembers it and is happy when the day comes. |
 | `PUPPIE_GPT_MODEL` | `gpt-5.4-nano` | The conversation model. `gpt-5.4-mini` gives smarter replies but is a little slower and costs more. |
