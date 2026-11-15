@@ -116,6 +116,8 @@ Then:
    sudo reboot
    ```
 
+   The second line adds two lines to the end of `/boot/firmware/config.txt`. If you go through this setup again on the same card (for example after a step failed), you can skip that line: the two lines are already there, and running it again only adds them a second time.
+
    After the restart, log in again and turn up the microphone (it starts at 0, so Puppie hears nothing):
 
    ```bash
