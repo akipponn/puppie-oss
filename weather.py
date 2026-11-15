@@ -8,8 +8,11 @@ import os
 
 import httpx  # installed together with the openai package
 
-# The city used when asked about the weather without naming one. Change it by writing e.g. PUPPIE_HOME_CITY=Berlin in .env
-HOME_CITY = os.getenv("PUPPIE_HOME_CITY", "Leipzig")
+# The city used when asked about the weather without naming one. Set it by writing e.g. PUPPIE_HOME_CITY=Berlin in .env
+# Without it (or with the placeholder from .env.example left in), Puppie asks which city.
+HOME_CITY = os.getenv("PUPPIE_HOME_CITY", "").strip()
+if HOME_CITY.lower() == "your-city-here":
+    HOME_CITY = ""
 WEATHER_TIMEOUT_SEC = 4
 FORECAST_DAYS = 7
 
@@ -36,12 +39,14 @@ TOOLS = [{
         "name": "get_weather",
         "description": (
             "Liefert das aktuelle Wetter und die Vorhersage für die nächsten Tage (heute, morgen, Wochenende) "
-            f"für eine Stadt. Wird keine Stadt genannt, gilt {HOME_CITY}."
+            "für eine Stadt. "
+            + (f"Wird keine Stadt genannt, gilt {HOME_CITY}." if HOME_CITY else
+               "Es ist keine Heimatstadt eingestellt: Wird keine Stadt genannt, frage zuerst, für welche Stadt.")
         ),
         "parameters": {
             "type": "object",
             "properties": {
-                "city": {"type": "string", "description": f"Name der Stadt, z. B. {HOME_CITY}"},
+                "city": {"type": "string", "description": f"Name der Stadt, z. B. {HOME_CITY or 'Berlin'}"},
             },
         },
     },
@@ -79,6 +84,9 @@ def _describe(code):
 def get_weather(city=None):
     """Return the weather as text (in German) to pass to the LLM. On failure, return text that says so"""
     city = (city or "").strip() or HOME_CITY
+    if not city:
+        return ("Keine Stadt genannt und keine Heimatstadt eingestellt. Frage, für welche Stadt, "
+                "und sage kurz, dass man die Heimatstadt in den Einstellungen festlegen kann.")
     try:
         location = _find_location(city)
         if location is None:
