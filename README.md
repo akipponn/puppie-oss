@@ -50,6 +50,8 @@ With the power **unplugged**, connect the parts to the Pi as shown in [Wiring](#
 
 If the Pi does not show up, check the Wi-Fi name and password. The Wi-Fi settings are only read on the first start, so the easiest fix is to write the card again.
 
+If ssh warns that the `REMOTE HOST IDENTIFICATION HAS CHANGED`, you have logged in to an earlier card with the same host name. Run `ssh-keygen -R puppie.local` (your own host name) and try again.
+
 ### Install Puppie
 
 On the Pi:
