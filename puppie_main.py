@@ -13,12 +13,21 @@ class ConversationStop(BaseException):
 start_requested = not STANDBY
 in_conversation = False
 stopping = False  # True once the goodbye audio starts. Touches after that are ignored
+reply_interrupted = False  # True when touched while Puppie was answering: stop the reply and listen again
 
 def _handle_touch(signum, frame):
-    global start_requested, stopping
+    global start_requested, stopping, reply_interrupted
     if not in_conversation:
         start_requested = True
-    elif not stopping:
+    elif stopping:
+        pass
+    elif audio_playing:
+        # Like the Atom version: a touch while Puppie speaks stops the voice, and the conversation
+        # goes on with listening. A touch while listening (or thinking) ends the conversation
+        if not reply_interrupted:
+            reply_interrupted = True
+            pygame.mixer.music.stop()
+    else:
         stopping = True
         raise ConversationStop()
 
@@ -160,7 +169,8 @@ def play_goodbye():
         time.sleep(0.1)
 
 def play_audio(text):
-    global audio_playing
+    global audio_playing, reply_interrupted
+    reply_interrupted = False
     audio_playing = True
     audio_stream.stop_stream()
 
@@ -188,11 +198,18 @@ def play_audio(text):
         t0 = time.perf_counter()
         pygame.mixer.music.load("reply.wav")
         pygame.mixer.music.set_volume(volume.level)
+        if reply_interrupted:
+            print("👆 Reply stopped by touch (before it started)")
+            return
         set_led("speaking")
         pygame.mixer.music.play()
+        if reply_interrupted:  # touched just before play() started
+            pygame.mixer.music.stop()
         print(f"⏱️ Time to playback start: {time.perf_counter() - t0:.2f}s")
         while pygame.mixer.music.get_busy():
             time.sleep(0.1)
+        if reply_interrupted:
+            print("👆 Reply stopped by touch, listening again")
     except Exception as e:
         print(f"⚠️ Audio playback error: {e}")
     finally:

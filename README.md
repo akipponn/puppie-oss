@@ -10,7 +10,7 @@ In development. Things will change, and the setup has so far only been tested on
 
 ## How it works
 
-You touch the sensor, Puppie listens, and it answers out loud. Touch it again to end the conversation.
+You touch the sensor, Puppie listens, and it answers out loud. Touch it while Puppie is speaking to stop it and speak yourself; touch it while Puppie is listening to end the conversation.
 
 - Speech to text and the conversation itself: OpenAI API
 - Text to speech: Amazon Polly
@@ -314,7 +314,7 @@ How these services handle the data depends on their own terms.
 
 ### The microphone
 
-Puppie starts listening when you touch the sensor. If nobody speaks for a set time after Puppie's last reply, it stops listening and goes back to standby. The time is 3 minutes by default and can be changed with `PUPPIE_IDLE_TIMEOUT_SEC`. Touching the sensor again or saying "Tschüss" also ends the conversation.
+Puppie starts listening when you touch the sensor. If nobody speaks for a set time after Puppie's last reply, it stops listening and goes back to standby. The time is 3 minutes by default and can be changed with `PUPPIE_IDLE_TIMEOUT_SEC`. Touching the sensor while Puppie is listening, or saying "Tschüss", also ends the conversation.
 
 ### Making Puppie forget
 
