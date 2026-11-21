@@ -8,7 +8,7 @@ A smaller Puppie: the same conversation as the Raspberry Pi version, on an M5Sta
 
 | Part | Needed? | Notes |
 |---|---|---|
-| M5Stack Atom VoiceS3R | yes | Shows up on USB as "Atom EchoS3R" (its old name) |
+| [M5Stack Atom VoiceS3R](https://docs.m5stack.com/en/core/Atom_VoiceS3R) | yes | Shows up on USB as "Atom EchoS3R" (its old name) |
 | USB-C cable (data, not charge-only) | yes | For flashing and for power |
 | M5Stack RGB LED Unit (3 LEDs) + Grove cable | optional | Shows what Puppie is doing |
 | Copper tape and a wire | optional | A touch spot, e.g. behind wood. Without it, use the button |
@@ -40,7 +40,7 @@ In the `puppie_atom` folder, copy `secrets.h.example` to `secrets.h` and fill in
    - PSRAM: **OPI PSRAM** (with QSPI, the Atom sees no PSRAM and Puppie cannot record)
    - Flash Size: **8MB (64Mb)**
    - Partition Scheme: **8M with spiffs (3MB APP/1.5MB SPIFFS)**
-3. The first time, the Atom has no serial port yet. Hold its reset button for about 2 seconds until a green light comes on. Now a port like `/dev/cu.usbmodem…` (Mac) or `COM…` (Windows) appears; choose it in **Tools → Port**.
+3. The first time, the Atom has no serial port yet. Hold its reset button for about 2 seconds until a green light comes on. (M5Stack's [Arduino guide](https://docs.m5stack.com/en/arduino/atom_echos3r/program) shows this too.) Now a port like `/dev/cu.usbmodem…` (Mac) or `COM…` (Windows) appears; choose it in **Tools → Port**.
 4. Click **Upload**.
 
 The same with `arduino-cli`:
