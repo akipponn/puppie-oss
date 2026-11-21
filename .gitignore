@@ -37,3 +37,6 @@ parts_wishlist.md
 
 # The full Sachsen 1100 logo package (only the two logos in assets/ are published)
 Logopaket_SGS_1100_Zeig-Dein-Sachsen/
+
+# Atom: your Wi-Fi and OpenAI key (copy secrets.h.example to secrets.h)
+atom/**/secrets.h
