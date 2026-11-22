@@ -4,6 +4,7 @@
 #include <M5Unified.h>
 #include <WiFi.h>
 #include <NetworkClientSecure.h>
+#include <Preferences.h>
 #include "secrets.h"  // copy secrets.h.example to secrets.h and fill it in
 
 static constexpr uint32_t SAMPLE_RATE = 16000;
@@ -728,9 +729,17 @@ String fetchWeather() {
   return text;
 }
 
+// The saved note (see updateMemory below), read from flash when a conversation starts.
+static String conversationMemory;
+static const char MEMORY_NOTE_INTRO[] =
+    "前に話したときのメモです。役に立つときだけ、自然に使ってください。メモがあることは言わなくてかまいません。\n";
+
 String askLlm(const String& userText, bool withWeather) {
   String request = String("{\"model\":\"") + GPT_MODEL + "\",\"max_completion_tokens\":1000,\"messages\":["
                    "{\"role\":\"system\",\"content\":\"" + jsonEscaped(PUPPIE_SETTING_TEXT) + "\"},";
+  if (conversationMemory.length() > 0) {
+    request += "{\"role\":\"system\",\"content\":\"" + jsonEscaped(String(MEMORY_NOTE_INTRO) + conversationMemory) + "\"},";
+  }
   if (withWeather) {
     String weather = fetchWeather();
     String note = weather.length() > 0
@@ -783,24 +792,57 @@ String postChat(const String& request, const char* label) {
   return "";
 }
 
-// Memory, step 1 (M1): when a conversation ends, the LLM writes a short note about it.
-// For now it only goes to the serial log (SUMMARY_RESULT); saving it comes later (M2).
-// It covers the exchanges still in the history (the last HISTORY_TURNS).
-static const char SUMMARY_PROMPT[] =
-    "これはPuppieと話した人との会話です。あとで思い出すためのメモとして、日本語で1〜3文に短くまとめてください。"
-    "話した人について覚えておくとよいこと（名前、好きなもの、予定、気持ちなど）を優先してください。"
-    "天気の数字など、すぐに古くなることは入れないでください。";
+// Memory: when a conversation ends, the LLM merges what was said into the note it already had, and the
+// new note is saved in flash (Preferences), so it is still there after the power was off.
+// The note covers the exchanges still in the history (the last HISTORY_TURNS).
+// askLlm sends the note along with each request, so Puppie can use it (M3).
+static const char MEMORY_PROMPT[] =
+    "あなたはPuppieの記憶係です。「前のメモ」と「今日の会話」から、Puppieと話す人について覚えておく事実だけを、"
+    "日本語の短い箇条書き（1行1つ、「- 」で始める）で書いてください。"
+    "書くのは、その人が自分について話したことだけです（名前、食べないもの、好きなもの、家族、予定、気になっていることなど）。"
+    "その人の言葉どおり、言い切りで書いてください。「〜かも」「可能性が高い」のようにぼかさないでください。"
+    "例外や条件を話していたら、それも書いてください（例：「外では食べることもある」）。"
+    "Puppieが言ったことや提案したこと、あいさつやお礼、会話の流れ、その人が試しに聞いた質問は書かないでください。"
+    "天気の数字のようにすぐ古くなることや、もう終わった予定は消してください。同じことは一度だけ。"
+    "前のメモの事実は、今日の会話で変わった、または終わったとはっきりわかるときだけ書き直し、それ以外はそのまま残してください。"
+    "新しい話が前の事実の例外や条件なら、消さずに一行にまとめてください（例：「ふだんはお肉を食べない。外食では食べることもある」）。"
+    "全部で200文字以内。覚えることがなければ前のメモをそのまま返してください。箇条書きだけを返してください。";
+static constexpr size_t MEMORY_MAX_BYTES = 2000;  // a flash string can hold about 4000 bytes
+static Preferences memoryStore;
 
-void summarizeConversation() {
+String loadMemory() {
+  memoryStore.begin("puppie", true);
+  String memory = memoryStore.getString("memory", "");
+  memoryStore.end();
+  return memory;
+}
+
+void saveMemory(const String& memory) {
+  memoryStore.begin("puppie", false);
+  size_t written = memoryStore.putString("memory", memory);
+  memoryStore.end();
+  Serial.printf("MEMORY_SAVED bytes=%u ok=%d\n", (unsigned)memory.length(), written > 0 ? 1 : 0);
+}
+
+void updateMemory() {
   if (historyCount == 0) { return; }
-  String talk;
+  String old = loadMemory();
+  Serial.printf("MEMORY_BEFORE bytes=%u %s\n", (unsigned)old.length(), old.c_str());
+  String input = String("前のメモ: ") + (old.length() > 0 ? old : "（まだありません）") + "\n\n今日の会話:\n";
   for (int i = 0; i < historyCount; i++) {
-    talk += String("人: ") + historyUser[i] + "\nPuppie: " + historyReply[i] + "\n";
+    input += String("人: ") + historyUser[i] + "\nPuppie: " + historyReply[i] + "\n";
   }
   String request = String("{\"model\":\"") + GPT_MODEL + "\",\"max_completion_tokens\":1000,\"messages\":["
-                   "{\"role\":\"system\",\"content\":\"" + jsonEscaped(SUMMARY_PROMPT) + "\"},"
-                   "{\"role\":\"user\",\"content\":\"" + jsonEscaped(talk) + "\"}]}";
-  postChat(request, "SUMMARY");
+                   "{\"role\":\"system\",\"content\":\"" + jsonEscaped(MEMORY_PROMPT) + "\"},"
+                   "{\"role\":\"user\",\"content\":\"" + jsonEscaped(input) + "\"}]}";
+  String memory = postChat(request, "MEMORY");
+  memory.trim();
+  if (memory.length() == 0) { return; }  // keep the old note if the LLM did not answer
+  if (memory.length() > MEMORY_MAX_BYTES) {
+    Serial.printf("MEMORY_TOO_LONG bytes=%u, old note kept\n", (unsigned)memory.length());
+    return;
+  }
+  saveMemory(memory);
 }
 
 // Emoji are 4-byte UTF-8 characters; they should not be read aloud.
@@ -979,6 +1021,8 @@ void setup() {
   replyAudio = (uint8_t*)heap_caps_malloc(REPLY_AUDIO_BYTES, MALLOC_CAP_SPIRAM);
   warmUpMic();
   initTouch();
+  String memory = loadMemory();
+  Serial.printf("MEMORY_LOADED bytes=%u %s\n", (unsigned)memory.length(), memory.c_str());
 }
 
 void loop() {
@@ -1002,6 +1046,8 @@ void loop() {
     endRequested = false;
     saidGoodbye = false;
     clearHistory();
+    conversationMemory = loadMemory();
+    Serial.printf("MEMORY_IN_USE bytes=%u\n", (unsigned)conversationMemory.length());
     uint32_t lastSpoke = millis();
     RoundResult result = talkRound(false);
     while (!endRequested && !saidGoodbye && result != RoundResult::Failed) {
@@ -1014,7 +1060,7 @@ void loop() {
     }
     Serial.printf("CONVERSATION_DONE ended_by_touch=%d goodbye=%d\n", endRequested ? 1 : 0, saidGoodbye ? 1 : 0);
     setLed(LedState::Thinking);
-    summarizeConversation();
+    updateMemory();
     setLed(LedState::Idle);
     touchCount = 0;
     touchHeld = true;  // a finger still on the tape must be lifted before the next touch
