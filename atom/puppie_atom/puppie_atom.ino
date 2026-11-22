@@ -888,8 +888,23 @@ bool wasTouched() {
   return false;
 }
 
+// Goodbye words (like the Pi's STOP_PHRASES): Puppie still answers, then the conversation ends.
+// Checked in lower case. "おやすみ" alone, not "お休み", which also means a day off.
+static const char* const GOODBYE_WORDS[] = {"bye", "see you", "good night", "tschüss", "tschüs", "auf wiedersehen",
+                                            "bis bald", "gute nacht", "バイバイ", "ばいばい", "さようなら",
+                                            "さよなら", "おやすみ", "またね"};
+static bool saidGoodbye = false;
+
+bool isGoodbye(String text) {
+  text.toLowerCase();
+  for (const char* word : GOODBYE_WORDS) {
+    if (text.indexOf(word) >= 0) { return true; }
+  }
+  return false;
+}
+
 // Like the Pi version: after a reply Puppie keeps listening, and ends the conversation when nobody
-// has spoken for IDLE_TIMEOUT_MS, or on a new touch / button press. The Pi waits 180 seconds
+// has spoken for IDLE_TIMEOUT_MS, on a goodbye word, or on a new touch / button press. The Pi waits 180 seconds
 // (PUPPIE_IDLE_TIMEOUT_SEC); 30 seconds here, since a long wait made it answer family talk (2026-11-16).
 static constexpr uint32_t IDLE_TIMEOUT_MS = 30000;
 RoundResult talkRound(bool followUp) {
@@ -903,6 +918,10 @@ RoundResult talkRound(bool followUp) {
   uint32_t start = millis();
   firstSoundAt = 0;
   String text = transcribe();
+  if (isGoodbye(text)) {
+    saidGoodbye = true;
+    Serial.println("GOODBYE_WORD");
+  }
   String reply = text.length() > 0 ? askLlm(text, asksAboutWeather(text)) : "";
   size_t bytes = reply.length() > 0 ? speak(withoutEmoji(reply)) : 0;
   uint32_t beforeSound = firstSoundAt > 0 ? firstSoundAt - start : 0;
@@ -954,10 +973,11 @@ void loop() {
   if (body && replyAudio && online && (touched || pressed)) {
     // One touch starts a conversation: Puppie keeps listening after each reply on its own.
     endRequested = false;
+    saidGoodbye = false;
     clearHistory();
     uint32_t lastSpoke = millis();
     RoundResult result = talkRound(false);
-    while (!endRequested && result != RoundResult::Failed) {
+    while (!endRequested && !saidGoodbye && result != RoundResult::Failed) {
       if (result == RoundResult::Spoke) { lastSpoke = millis(); }
       if (millis() - lastSpoke > IDLE_TIMEOUT_MS) {
         Serial.println("IDLE_TIMEOUT");
@@ -965,7 +985,7 @@ void loop() {
       }
       result = talkRound(true);
     }
-    Serial.printf("CONVERSATION_DONE ended_by_touch=%d\n", endRequested ? 1 : 0);
+    Serial.printf("CONVERSATION_DONE ended_by_touch=%d goodbye=%d\n", endRequested ? 1 : 0, saidGoodbye ? 1 : 0);
     setLed(LedState::Idle);
     touchCount = 0;
     touchHeld = true;  // a finger still on the tape must be lifted before the next touch
