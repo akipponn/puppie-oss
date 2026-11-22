@@ -744,6 +744,13 @@ String askLlm(const String& userText, bool withWeather) {
                "{\"role\":\"assistant\",\"content\":\"" + jsonEscaped(historyReply[i]) + "\"},";
   }
   request += "{\"role\":\"user\",\"content\":\"" + jsonEscaped(userText) + "\"}]}";
+  String reply = postChat(request, "LLM");
+  if (reply.length() > 0) { rememberExchange(userText, reply); }
+  return reply;
+}
+
+// Sends a chat request and returns the answer ("" on failure). label goes in front of the log lines.
+String postChat(const String& request, const char* label) {
   uint32_t start = millis();
   for (int attempt = 1; attempt <= ATTEMPTS; attempt++) {
     bool ok = false;
@@ -767,13 +774,33 @@ String askLlm(const String& userText, bool withWeather) {
       continue;
     }
     String reply = code == 200 ? jsonText(content, "content") : "";
-    Serial.printf("LLM_RESULT ms=%lu connect=%lu wait=%lu reused=%d attempt=%d code=%d history=%d %s\n", millis() - start,
-                  connectMs, millis() - sent, reused ? 1 : 0, attempt, code, historyCount, reply.c_str());
-    if (reply.length() > 0) { rememberExchange(userText, reply); }
+    Serial.printf("%s_RESULT ms=%lu connect=%lu wait=%lu reused=%d attempt=%d code=%d history=%d %s\n", label,
+                  millis() - start, connectMs, millis() - sent, reused ? 1 : 0, attempt, code, historyCount,
+                  reply.c_str());
     return reply;
   }
-  Serial.printf("LLM failed after %lu ms\n", millis() - start);
+  Serial.printf("%s failed after %lu ms\n", label, millis() - start);
   return "";
+}
+
+// Memory, step 1 (M1): when a conversation ends, the LLM writes a short note about it.
+// For now it only goes to the serial log (SUMMARY_RESULT); saving it comes later (M2).
+// It covers the exchanges still in the history (the last HISTORY_TURNS).
+static const char SUMMARY_PROMPT[] =
+    "これはPuppieと話した人との会話です。あとで思い出すためのメモとして、日本語で1〜3文に短くまとめてください。"
+    "話した人について覚えておくとよいこと（名前、好きなもの、予定、気持ちなど）を優先してください。"
+    "天気の数字など、すぐに古くなることは入れないでください。";
+
+void summarizeConversation() {
+  if (historyCount == 0) { return; }
+  String talk;
+  for (int i = 0; i < historyCount; i++) {
+    talk += String("人: ") + historyUser[i] + "\nPuppie: " + historyReply[i] + "\n";
+  }
+  String request = String("{\"model\":\"") + GPT_MODEL + "\",\"max_completion_tokens\":1000,\"messages\":["
+                   "{\"role\":\"system\",\"content\":\"" + jsonEscaped(SUMMARY_PROMPT) + "\"},"
+                   "{\"role\":\"user\",\"content\":\"" + jsonEscaped(talk) + "\"}]}";
+  postChat(request, "SUMMARY");
 }
 
 // Emoji are 4-byte UTF-8 characters; they should not be read aloud.
@@ -986,6 +1013,8 @@ void loop() {
       result = talkRound(true);
     }
     Serial.printf("CONVERSATION_DONE ended_by_touch=%d goodbye=%d\n", endRequested ? 1 : 0, saidGoodbye ? 1 : 0);
+    setLed(LedState::Thinking);
+    summarizeConversation();
     setLed(LedState::Idle);
     touchCount = 0;
     touchHeld = true;  // a finger still on the tape must be lifted before the next touch
