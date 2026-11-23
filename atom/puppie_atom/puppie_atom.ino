@@ -5,6 +5,7 @@
 #include <WiFi.h>
 #include <NetworkClientSecure.h>
 #include <Preferences.h>
+#include <LittleFS.h>
 #include "secrets.h"  // copy secrets.h.example to secrets.h and fill it in
 
 static constexpr uint32_t SAMPLE_RATE = 16000;
@@ -180,7 +181,9 @@ static constexpr uint32_t SPEECH_LEVEL = 150;
 static constexpr size_t WAIT_FOR_SPEECH_MS = 4000;
 static constexpr size_t SILENCE_AFTER_MS = 800;
 static bool endRequested = false;  // a touch or button press while listening ends the conversation
+static bool forgetRequested = false;  // still touching FORGET_HOLD_MS after a touch: ask to forget the note
 bool wasTouched();
+bool heldLong();
 
 uint32_t blockLevel(const int16_t* block, size_t count) {
   uint64_t sum = 0;
@@ -206,6 +209,11 @@ bool record(int16_t* samples) {
     while (M5.Mic.isRecording() > 1) { M5.delay(1); }
     M5.update();
     if (wasTouched() || M5.BtnA.wasPressed()) {
+      endRequested = true;
+      break;
+    }
+    if (heldLong()) {
+      forgetRequested = true;
       endRequested = true;
       break;
     }
@@ -847,6 +855,13 @@ void updateMemory() {
   saveMemory(memory);
 }
 
+void clearMemory() {
+  memoryStore.begin("puppie", false);
+  memoryStore.remove("memory");
+  memoryStore.end();
+  Serial.println("MEMORY_FORGOTTEN");
+}
+
 // Emoji are 4-byte UTF-8 characters; they should not be read aloud.
 String withoutEmoji(const String& text) {
   String out;
@@ -915,6 +930,120 @@ void finishSpeaking() {
   Serial.println("MIC_READY");
 }
 
+// Fixed sentences are made by TTS only the first time, then kept as files in flash (LittleFS) and played from
+// there: no waiting, no internet. The file name comes from the text, voice and instructions, so a changed
+// sentence is made again. Erasing the flash removes them; they are made again when needed.
+static bool phraseFilesOk = false;
+
+String phrasePath(const char* text) {
+  uint32_t hash = 5381;
+  for (const char* part : {text, TTS_VOICE, TTS_INSTRUCTIONS, TTS_MODEL}) {
+    for (const char* c = part; *c; c++) { hash = hash * 33 + (uint8_t)*c; }
+  }
+  char path[24];
+  snprintf(path, sizeof(path), "/phrase_%08lx.pcm", (unsigned long)hash);
+  return path;
+}
+
+bool playPhraseFile(const String& path) {
+  if (!phraseFilesOk || !LittleFS.exists(path)) { return false; }
+  File file = LittleFS.open(path, "r");
+  size_t size = file ? file.size() : 0;
+  size_t bytes = size > 0 && size <= REPLY_AUDIO_BYTES ? file.read(replyAudio, size) : 0;
+  if (file) { file.close(); }
+  if (bytes == 0 || bytes != size) {
+    Serial.printf("PHRASE_FILE_BAD %s bytes=%u\n", path.c_str(), (unsigned)size);
+    LittleFS.remove(path);
+    return false;
+  }
+  Serial.printf("PHRASE_FROM_FLASH %s bytes=%u\n", path.c_str(), (unsigned)bytes);
+  startSpeaker();
+  feedSpeaker(bytes & ~(size_t)1, true);
+  finishSpeaking();
+  return true;
+}
+
+void savePhraseFile(const String& path, size_t bytes) {
+  if (!phraseFilesOk) { return; }
+  uint32_t start = millis();
+  File file = LittleFS.open(path, "w");
+  size_t written = file ? file.write(replyAudio, bytes) : 0;
+  if (file) { file.close(); }
+  if (written != bytes) {
+    LittleFS.remove(path);  // never keep half a sentence
+  }
+  Serial.printf("PHRASE_SAVED %s bytes=%u ok=%d ms=%lu\n", path.c_str(), (unsigned)bytes, written == bytes ? 1 : 0,
+                millis() - start);
+}
+
+// Says a fixed sentence. False if it could not be said.
+bool say(const char* text) {
+  String path = phrasePath(text);
+  if (playPhraseFile(path)) { return true; }
+  setLed(LedState::Thinking);
+  size_t bytes = speak(text);
+  if (M5.Speaker.isRunning()) { finishSpeaking(); }
+  if (bytes > 1 && !interrupted) { savePhraseFile(path, bytes); }  // only a sentence that arrived whole
+  return bytes > 0;
+}
+
+// Forgetting (M4): after a touch held for FORGET_HOLD_MS, Puppie asks first. A touch within FORGET_WAIT_MS
+// (or during the question) erases the note; otherwise the note is kept. True if the note was erased.
+static constexpr uint32_t FORGET_WAIT_MS = 10000;
+
+// Fixed sentences in the language set by PUPPIE_LANGUAGE in secrets.h ("de", "en" or "ja"; German if not set).
+#ifndef PUPPIE_LANGUAGE
+#define PUPPIE_LANGUAGE "de"
+#endif
+struct Phrases {
+  const char* forgetQuestion;
+  const char* forgetDone;
+  const char* forgetKept;
+};
+static const Phrases PHRASES_DE = {
+    "Soll ich alles vergessen, was ich mir gemerkt habe? Wenn ja, berühre mich noch einmal. "
+    "Wenn du mich 10 Sekunden nicht berührst, lasse ich es.",
+    "Okay, ich habe alles vergessen.",
+    "Gut, dann behalte ich es."};
+static const Phrases PHRASES_EN = {
+    "Shall I forget everything I remember about you? If yes, touch me once more. "
+    "If you don't touch me for 10 seconds, I'll leave it.",
+    "Okay, I have forgotten everything.",
+    "All right, I'll keep it."};
+static const Phrases PHRASES_JA = {
+    "わたしが覚えていることを、全部消してもいい？いいなら、もう一度タッチしてね。10秒タッチがなかったら、やめておくね。",
+    "わかった。全部忘れたよ。",
+    "じゃあ、このまま覚えておくね。"};
+
+static const Phrases* const PHRASES = strcmp(PUPPIE_LANGUAGE, "ja") == 0   ? &PHRASES_JA
+                                      : strcmp(PUPPIE_LANGUAGE, "en") == 0 ? &PHRASES_EN
+                                                                           : &PHRASES_DE;
+
+bool askToForget() {
+  Serial.println("FORGET_ASKED");
+  if (!say(PHRASES->forgetQuestion)) {
+    setLed(LedState::Error);
+    M5.delay(ERROR_SHOW_MS);
+    return false;
+  }
+  bool yes = interrupted;  // touched while the question was still playing
+  setLed(LedState::Listening);
+  uint32_t until = millis() + FORGET_WAIT_MS;
+  while (!yes && millis() < until) {
+    M5.update();
+    if (wasTouched() || M5.BtnA.wasPressed()) { yes = true; }
+    M5.delay(10);
+  }
+  Serial.printf("FORGET_ANSWER yes=%d\n", yes ? 1 : 0);
+  if (!yes) {
+    say(PHRASES->forgetKept);
+    return false;
+  }
+  clearMemory();
+  say(PHRASES->forgetDone);
+  return true;
+}
+
 // Built-in capacitive touch on G8 (copper tape behind the wood). On ESP32-S3 the value
 // goes UP when touched. The baseline slowly follows the untouched value; a touch is
 // 3 readings in a row above baseline + TOUCH_RISE_PERCENT.
@@ -925,7 +1054,9 @@ static constexpr uint32_t TOUCH_READ_MS = 50;
 static uint32_t touchBaseline = 0;
 static int touchCount = 0;
 static bool touchHeld = false;
+static uint32_t touchStartedAt = 0;  // when the finger still on the tape arrived, 0 if none
 static uint32_t lastTouchRead = 0;
+static constexpr uint32_t FORGET_HOLD_MS = 5000;
 
 void initTouch() {
   touchRead(TOUCH_PIN);  // the first reading is often off
@@ -948,15 +1079,22 @@ bool wasTouched() {
     touchCount++;
     if (touchCount >= TOUCH_NEEDED && !touchHeld) {
       touchHeld = true;
+      touchStartedAt = millis();
       Serial.printf("TOUCH %u (baseline %u)\n", v, touchBaseline);
       return true;
     }
   } else {
     touchCount = 0;
     touchHeld = false;
+    touchStartedAt = 0;
     touchBaseline = (touchBaseline * 31 + v) / 32;  // follow slow drift
   }
   return false;
+}
+
+// True while the finger of the last touch has stayed on the tape for FORGET_HOLD_MS (wasTouched keeps it current).
+bool heldLong() {
+  return touchHeld && touchStartedAt > 0 && millis() - touchStartedAt >= FORGET_HOLD_MS;
 }
 
 // Goodbye words (like the Pi's STOP_PHRASES): Puppie still answers, then the conversation ends.
@@ -1023,6 +1161,9 @@ void setup() {
   replyAudio = (uint8_t*)heap_caps_malloc(REPLY_AUDIO_BYTES, MALLOC_CAP_SPIRAM);
   warmUpMic();
   initTouch();
+  phraseFilesOk = LittleFS.begin(true);  // true: format it the first time
+  Serial.printf("PHRASE_FILES ok=%d used=%u total=%u\n", phraseFilesOk ? 1 : 0,
+                phraseFilesOk ? (unsigned)LittleFS.usedBytes() : 0, phraseFilesOk ? (unsigned)LittleFS.totalBytes() : 0);
   String memory = loadMemory();
   Serial.printf("MEMORY_LOADED bytes=%u %s\n", (unsigned)memory.length(), memory.c_str());
 }
@@ -1046,6 +1187,7 @@ void loop() {
   if (body && replyAudio && online && (touched || pressed)) {
     // One touch starts a conversation: Puppie keeps listening after each reply on its own.
     endRequested = false;
+    forgetRequested = false;
     saidGoodbye = false;
     clearHistory();
     conversationMemory = loadMemory();
@@ -1062,10 +1204,11 @@ void loop() {
     }
     Serial.printf("CONVERSATION_DONE ended_by_touch=%d goodbye=%d\n", endRequested ? 1 : 0, saidGoodbye ? 1 : 0);
     setLed(LedState::Thinking);
-    updateMemory();
+    if (!forgetRequested || !askToForget()) { updateMemory(); }
     setLed(LedState::Idle);
     touchCount = 0;
     touchHeld = true;  // a finger still on the tape must be lifted before the next touch
+    touchStartedAt = 0;
   }
   M5.delay(10);
 }
