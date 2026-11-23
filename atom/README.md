@@ -28,7 +28,9 @@ A smaller Puppie: the same conversation as the Raspberry Pi version, on an M5Sta
 
 In the `puppie_atom` folder, copy `secrets.h.example` to `secrets.h` and fill in your OpenAI API key and your Wi-Fi name and password. The Atom only uses 2.4 GHz Wi-Fi.
 
-`secrets.h` is not in git, so your keys stay on your computer. But they are also written into the Atom when you flash it: if you give the Atom to someone else, flash it again without your keys first.
+`PUPPIE_LANGUAGE` sets the language of Puppie's few fixed sentences (like "Shall I forget everything?"): `"de"`, `"en"` or `"ja"`. Without it, they are in German.
+
+`secrets.h` is not in git, so your keys stay on your computer. But they are also written into the Atom when you flash it: if you give the Atom to someone else, [erase it](#erase-everything) first.
 
 ## Flash
 
@@ -62,19 +64,40 @@ Touch the copper tape (or press the button) and speak. The LED shows what is hap
 | red | something went wrong |
 | off | waiting for a touch |
 
-After a reply Puppie keeps listening, so you can just go on talking. The conversation ends after 30 seconds of silence, or when you touch again. A touch while Puppie is speaking stops it and lets you speak.
+After a reply Puppie keeps listening, so you can just go on talking. The conversation ends after 30 seconds of silence, when you touch again, or when you say goodbye (bye, see you, good night, Tschüss, バイバイ, おやすみ …; Puppie still answers first). A touch while Puppie is speaking stops it and lets you speak.
 
 The Serial Monitor (115200 baud) shows what Puppie heard and answered.
+
+## Memory
+
+When a conversation ends, Puppie writes a short note about you: facts you told it about yourself, like what you do not eat or where you live. The note is kept in the Atom's flash, so it is still there after the power was off, and it goes along with the next conversations.
+
+**To make Puppie forget:** touch, and keep your finger on the touch spot for 5 seconds. Puppie stops the conversation and asks whether to forget everything. Touch once more to say yes. If you do not touch within 10 seconds, the note is kept. Only the note is erased: Wi-Fi, keys and everything else stay as they are.
+
+You cannot see the note on the Atom yet (only in the Serial Monitor, as `MEMORY_RESULT`). Seeing it on a settings page is planned.
+
+Puppie's fixed sentences (the question above and its answers) are made by OpenAI the first time they are needed and then kept in flash too, so after that they play at once, also without internet.
+
+## Erase everything
+
+To remove the note, the saved sentences and your keys and Wi-Fi from the Atom (for example before you give it away), erase its whole flash. `esptool` comes with the esp32 boards package (on a Mac in `~/Library/Arduino15/packages/esp32/tools/esptool_py/<version>/`), or install it with `pip install esptool`:
+
+```bash
+esptool --port /dev/cu.usbmodem1101 erase_flash
+```
+
+If it cannot connect, hold the reset button for about 2 seconds first (as in [Flash](#flash), step 3). After this the Atom does nothing until you flash it again.
 
 ## Not yet
 
 These are planned (see the main README for the Pi version, which already has them):
 
-- Ending the conversation when you say goodbye
-- Remembering you between conversations
 - A settings page on your phone for Wi-Fi, city and API key (now they are in `secrets.h` and in the code)
 - The weather is always for Leipzig (`HOME_LATITUDE` / `HOME_LONGITUDE` in the code)
+- Seeing the saved note (and forgetting it) on that settings page
 
 ## Safety and privacy
 
-The [Safety](../README.md#safety) section of the main README applies here too. Your voice and the conversation are sent to OpenAI, the same as with the Pi version (see [Privacy](../README.md#privacy)). The Atom version keeps no conversation log and no memory yet.
+The [Safety](../README.md#safety) section of the main README applies here too. Your voice and the conversation are sent to OpenAI, the same as with the Pi version (see [Privacy](../README.md#privacy)).
+
+The Atom keeps no recordings and no conversation log. It does keep the short [note about you](#memory) in its flash, and that note is sent to OpenAI with each conversation and when it is updated. If other people talk to Puppie too, tell them that Puppie remembers what they say about themselves, and how to make it forget.
