@@ -4,6 +4,8 @@
 #include <M5Unified.h>
 #include <WiFi.h>
 #include <NetworkClientSecure.h>
+#include <Preferences.h>
+#include <LittleFS.h>
 #include "secrets.h"  // copy secrets.h.example to secrets.h and fill it in
 
 static constexpr uint32_t SAMPLE_RATE = 16000;
@@ -30,6 +32,8 @@ static constexpr int TTS_ATTEMPTS = 3;
 
 static const char API_HOST[] = "api.openai.com";
 static const char GPT_MODEL[] = "gpt-5.4-nano";
+// Only for the saved note (once per conversation): nano dropped old facts when merging (2026-11-22).
+static const char MEMORY_MODEL[] = "gpt-5.4-mini";
 static const char TTS_MODEL[] = "gpt-4o-mini-tts";
 static const char TTS_VOICE[] = "marin";
 static const char TTS_INSTRUCTIONS[] = "やさしく、あたたかい声で話してください。親しい友だちと話すような、明るい話し方で、テンポよく、ふつうの会話の速さで。";
@@ -177,7 +181,9 @@ static constexpr uint32_t SPEECH_LEVEL = 150;
 static constexpr size_t WAIT_FOR_SPEECH_MS = 4000;
 static constexpr size_t SILENCE_AFTER_MS = 800;
 static bool endRequested = false;  // a touch or button press while listening ends the conversation
+static bool forgetRequested = false;  // still touching FORGET_HOLD_MS after a touch: ask to forget the note
 bool wasTouched();
+bool heldLong();
 
 uint32_t blockLevel(const int16_t* block, size_t count) {
   uint64_t sum = 0;
@@ -203,6 +209,11 @@ bool record(int16_t* samples) {
     while (M5.Mic.isRecording() > 1) { M5.delay(1); }
     M5.update();
     if (wasTouched() || M5.BtnA.wasPressed()) {
+      endRequested = true;
+      break;
+    }
+    if (heldLong()) {
+      forgetRequested = true;
       endRequested = true;
       break;
     }
@@ -728,9 +739,17 @@ String fetchWeather() {
   return text;
 }
 
+// The saved note (see updateMemory below), read from flash when a conversation starts.
+static String conversationMemory;
+static const char MEMORY_NOTE_INTRO[] =
+    "前に話したときのメモです。役に立つときだけ、自然に使ってください。メモがあることは言わなくてかまいません。\n";
+
 String askLlm(const String& userText, bool withWeather) {
   String request = String("{\"model\":\"") + GPT_MODEL + "\",\"max_completion_tokens\":1000,\"messages\":["
                    "{\"role\":\"system\",\"content\":\"" + jsonEscaped(PUPPIE_SETTING_TEXT) + "\"},";
+  if (conversationMemory.length() > 0) {
+    request += "{\"role\":\"system\",\"content\":\"" + jsonEscaped(String(MEMORY_NOTE_INTRO) + conversationMemory) + "\"},";
+  }
   if (withWeather) {
     String weather = fetchWeather();
     String note = weather.length() > 0
@@ -783,24 +802,64 @@ String postChat(const String& request, const char* label) {
   return "";
 }
 
-// Memory, step 1 (M1): when a conversation ends, the LLM writes a short note about it.
-// For now it only goes to the serial log (SUMMARY_RESULT); saving it comes later (M2).
-// It covers the exchanges still in the history (the last HISTORY_TURNS).
-static const char SUMMARY_PROMPT[] =
-    "これはPuppieと話した人との会話です。あとで思い出すためのメモとして、日本語で1〜3文に短くまとめてください。"
-    "話した人について覚えておくとよいこと（名前、好きなもの、予定、気持ちなど）を優先してください。"
-    "天気の数字など、すぐに古くなることは入れないでください。";
+// Memory: when a conversation ends, the LLM merges what was said into the note it already had, and the
+// new note is saved in flash (Preferences), so it is still there after the power was off.
+// The note covers the exchanges still in the history (the last HISTORY_TURNS).
+// askLlm sends the note along with each request, so Puppie can use it (M3).
+static const char MEMORY_PROMPT[] =
+    "あなたはPuppieの記憶係です。「前のメモ」と「今日の会話」から、Puppieと話す人について覚えておく事実だけを、"
+    "日本語の短い箇条書き（1行1つ、「- 」で始める）で書いてください。"
+    "書くのは、その人が自分について話したことだけです（名前、食べないもの、好きなもの、家族、予定、気になっていることなど）。"
+    "その人の言葉どおり、言い切りで書いてください。「〜かも」「可能性が高い」のようにぼかさないでください。"
+    "例外や条件を話していたら、それも書いてください（例：「外では食べることもある」）。"
+    "Puppieが言ったことや提案したこと、あいさつやお礼、会話の流れ、その人が試しに聞いた質問は書かないでください。"
+    "天気の数字のようにすぐ古くなることや、もう終わった予定は消してください。同じことは一度だけ。"
+    "前のメモの事実は、今日の会話で変わった、または終わったとはっきりわかるときだけ書き直し、それ以外はそのまま残してください。"
+    "新しい話が前の事実の例外や条件なら、消さずに一行にまとめてください（例：「ふだんはお肉を食べない。外食では食べることもある」）。"
+    "全部で300文字以内。覚えることがなければ前のメモをそのまま返してください。箇条書きだけを返してください。";
+static constexpr size_t MEMORY_MAX_BYTES = 2000;  // a flash string can hold about 4000 bytes
+static Preferences memoryStore;
 
-void summarizeConversation() {
+String loadMemory() {
+  memoryStore.begin("puppie", true);
+  String memory = memoryStore.getString("memory", "");
+  memoryStore.end();
+  return memory;
+}
+
+void saveMemory(const String& memory) {
+  memoryStore.begin("puppie", false);
+  size_t written = memoryStore.putString("memory", memory);
+  memoryStore.end();
+  Serial.printf("MEMORY_SAVED bytes=%u ok=%d\n", (unsigned)memory.length(), written > 0 ? 1 : 0);
+}
+
+void updateMemory() {
   if (historyCount == 0) { return; }
-  String talk;
+  String old = loadMemory();
+  Serial.printf("MEMORY_BEFORE bytes=%u %s\n", (unsigned)old.length(), old.c_str());
+  String input = String("前のメモ: ") + (old.length() > 0 ? old : "（まだありません）") + "\n\n今日の会話:\n";
   for (int i = 0; i < historyCount; i++) {
-    talk += String("人: ") + historyUser[i] + "\nPuppie: " + historyReply[i] + "\n";
+    input += String("人: ") + historyUser[i] + "\nPuppie: " + historyReply[i] + "\n";
   }
-  String request = String("{\"model\":\"") + GPT_MODEL + "\",\"max_completion_tokens\":1000,\"messages\":["
-                   "{\"role\":\"system\",\"content\":\"" + jsonEscaped(SUMMARY_PROMPT) + "\"},"
-                   "{\"role\":\"user\",\"content\":\"" + jsonEscaped(talk) + "\"}]}";
-  postChat(request, "SUMMARY");
+  String request = String("{\"model\":\"") + MEMORY_MODEL + "\",\"max_completion_tokens\":2000,\"messages\":["
+                   "{\"role\":\"system\",\"content\":\"" + jsonEscaped(MEMORY_PROMPT) + "\"},"
+                   "{\"role\":\"user\",\"content\":\"" + jsonEscaped(input) + "\"}]}";
+  String memory = postChat(request, "MEMORY");
+  memory.trim();
+  if (memory.length() == 0) { return; }  // keep the old note if the LLM did not answer
+  if (memory.length() > MEMORY_MAX_BYTES) {
+    Serial.printf("MEMORY_TOO_LONG bytes=%u, old note kept\n", (unsigned)memory.length());
+    return;
+  }
+  saveMemory(memory);
+}
+
+void clearMemory() {
+  memoryStore.begin("puppie", false);
+  memoryStore.remove("memory");
+  memoryStore.end();
+  Serial.println("MEMORY_FORGOTTEN");
 }
 
 // Emoji are 4-byte UTF-8 characters; they should not be read aloud.
@@ -871,6 +930,120 @@ void finishSpeaking() {
   Serial.println("MIC_READY");
 }
 
+// Fixed sentences are made by TTS only the first time, then kept as files in flash (LittleFS) and played from
+// there: no waiting, no internet. The file name comes from the text, voice and instructions, so a changed
+// sentence is made again. Erasing the flash removes them; they are made again when needed.
+static bool phraseFilesOk = false;
+
+String phrasePath(const char* text) {
+  uint32_t hash = 5381;
+  for (const char* part : {text, TTS_VOICE, TTS_INSTRUCTIONS, TTS_MODEL}) {
+    for (const char* c = part; *c; c++) { hash = hash * 33 + (uint8_t)*c; }
+  }
+  char path[24];
+  snprintf(path, sizeof(path), "/phrase_%08lx.pcm", (unsigned long)hash);
+  return path;
+}
+
+bool playPhraseFile(const String& path) {
+  if (!phraseFilesOk || !LittleFS.exists(path)) { return false; }
+  File file = LittleFS.open(path, "r");
+  size_t size = file ? file.size() : 0;
+  size_t bytes = size > 0 && size <= REPLY_AUDIO_BYTES ? file.read(replyAudio, size) : 0;
+  if (file) { file.close(); }
+  if (bytes == 0 || bytes != size) {
+    Serial.printf("PHRASE_FILE_BAD %s bytes=%u\n", path.c_str(), (unsigned)size);
+    LittleFS.remove(path);
+    return false;
+  }
+  Serial.printf("PHRASE_FROM_FLASH %s bytes=%u\n", path.c_str(), (unsigned)bytes);
+  startSpeaker();
+  feedSpeaker(bytes & ~(size_t)1, true);
+  finishSpeaking();
+  return true;
+}
+
+void savePhraseFile(const String& path, size_t bytes) {
+  if (!phraseFilesOk) { return; }
+  uint32_t start = millis();
+  File file = LittleFS.open(path, "w");
+  size_t written = file ? file.write(replyAudio, bytes) : 0;
+  if (file) { file.close(); }
+  if (written != bytes) {
+    LittleFS.remove(path);  // never keep half a sentence
+  }
+  Serial.printf("PHRASE_SAVED %s bytes=%u ok=%d ms=%lu\n", path.c_str(), (unsigned)bytes, written == bytes ? 1 : 0,
+                millis() - start);
+}
+
+// Says a fixed sentence. False if it could not be said.
+bool say(const char* text) {
+  String path = phrasePath(text);
+  if (playPhraseFile(path)) { return true; }
+  setLed(LedState::Thinking);
+  size_t bytes = speak(text);
+  if (M5.Speaker.isRunning()) { finishSpeaking(); }
+  if (bytes > 1 && !interrupted) { savePhraseFile(path, bytes); }  // only a sentence that arrived whole
+  return bytes > 0;
+}
+
+// Forgetting (M4): after a touch held for FORGET_HOLD_MS, Puppie asks first. A touch within FORGET_WAIT_MS
+// (or during the question) erases the note; otherwise the note is kept. True if the note was erased.
+static constexpr uint32_t FORGET_WAIT_MS = 10000;
+
+// Fixed sentences in the language set by PUPPIE_LANGUAGE in secrets.h ("de", "en" or "ja"; German if not set).
+#ifndef PUPPIE_LANGUAGE
+#define PUPPIE_LANGUAGE "de"
+#endif
+struct Phrases {
+  const char* forgetQuestion;
+  const char* forgetDone;
+  const char* forgetKept;
+};
+static const Phrases PHRASES_DE = {
+    "Soll ich alles vergessen, was ich mir gemerkt habe? Wenn ja, berühre mich noch einmal. "
+    "Wenn du mich 10 Sekunden nicht berührst, lasse ich es.",
+    "Okay, ich habe alles vergessen.",
+    "Gut, dann behalte ich es."};
+static const Phrases PHRASES_EN = {
+    "Shall I forget everything I remember about you? If yes, touch me once more. "
+    "If you don't touch me for 10 seconds, I'll leave it.",
+    "Okay, I have forgotten everything.",
+    "All right, I'll keep it."};
+static const Phrases PHRASES_JA = {
+    "わたしが覚えていることを、全部消してもいい？いいなら、もう一度タッチしてね。10秒タッチがなかったら、やめておくね。",
+    "わかった。全部忘れたよ。",
+    "じゃあ、このまま覚えておくね。"};
+
+static const Phrases* const PHRASES = strcmp(PUPPIE_LANGUAGE, "ja") == 0   ? &PHRASES_JA
+                                      : strcmp(PUPPIE_LANGUAGE, "en") == 0 ? &PHRASES_EN
+                                                                           : &PHRASES_DE;
+
+bool askToForget() {
+  Serial.println("FORGET_ASKED");
+  if (!say(PHRASES->forgetQuestion)) {
+    setLed(LedState::Error);
+    M5.delay(ERROR_SHOW_MS);
+    return false;
+  }
+  bool yes = interrupted;  // touched while the question was still playing
+  setLed(LedState::Listening);
+  uint32_t until = millis() + FORGET_WAIT_MS;
+  while (!yes && millis() < until) {
+    M5.update();
+    if (wasTouched() || M5.BtnA.wasPressed()) { yes = true; }
+    M5.delay(10);
+  }
+  Serial.printf("FORGET_ANSWER yes=%d\n", yes ? 1 : 0);
+  if (!yes) {
+    say(PHRASES->forgetKept);
+    return false;
+  }
+  clearMemory();
+  say(PHRASES->forgetDone);
+  return true;
+}
+
 // Built-in capacitive touch on G8 (copper tape behind the wood). On ESP32-S3 the value
 // goes UP when touched. The baseline slowly follows the untouched value; a touch is
 // 3 readings in a row above baseline + TOUCH_RISE_PERCENT.
@@ -881,7 +1054,9 @@ static constexpr uint32_t TOUCH_READ_MS = 50;
 static uint32_t touchBaseline = 0;
 static int touchCount = 0;
 static bool touchHeld = false;
+static uint32_t touchStartedAt = 0;  // when the finger still on the tape arrived, 0 if none
 static uint32_t lastTouchRead = 0;
+static constexpr uint32_t FORGET_HOLD_MS = 5000;
 
 void initTouch() {
   touchRead(TOUCH_PIN);  // the first reading is often off
@@ -904,15 +1079,22 @@ bool wasTouched() {
     touchCount++;
     if (touchCount >= TOUCH_NEEDED && !touchHeld) {
       touchHeld = true;
+      touchStartedAt = millis();
       Serial.printf("TOUCH %u (baseline %u)\n", v, touchBaseline);
       return true;
     }
   } else {
     touchCount = 0;
     touchHeld = false;
+    touchStartedAt = 0;
     touchBaseline = (touchBaseline * 31 + v) / 32;  // follow slow drift
   }
   return false;
+}
+
+// True while the finger of the last touch has stayed on the tape for FORGET_HOLD_MS (wasTouched keeps it current).
+bool heldLong() {
+  return touchHeld && touchStartedAt > 0 && millis() - touchStartedAt >= FORGET_HOLD_MS;
 }
 
 // Goodbye words (like the Pi's STOP_PHRASES): Puppie still answers, then the conversation ends.
@@ -979,6 +1161,11 @@ void setup() {
   replyAudio = (uint8_t*)heap_caps_malloc(REPLY_AUDIO_BYTES, MALLOC_CAP_SPIRAM);
   warmUpMic();
   initTouch();
+  phraseFilesOk = LittleFS.begin(true);  // true: format it the first time
+  Serial.printf("PHRASE_FILES ok=%d used=%u total=%u\n", phraseFilesOk ? 1 : 0,
+                phraseFilesOk ? (unsigned)LittleFS.usedBytes() : 0, phraseFilesOk ? (unsigned)LittleFS.totalBytes() : 0);
+  String memory = loadMemory();
+  Serial.printf("MEMORY_LOADED bytes=%u %s\n", (unsigned)memory.length(), memory.c_str());
 }
 
 void loop() {
@@ -1000,8 +1187,11 @@ void loop() {
   if (body && replyAudio && online && (touched || pressed)) {
     // One touch starts a conversation: Puppie keeps listening after each reply on its own.
     endRequested = false;
+    forgetRequested = false;
     saidGoodbye = false;
     clearHistory();
+    conversationMemory = loadMemory();
+    Serial.printf("MEMORY_IN_USE bytes=%u\n", (unsigned)conversationMemory.length());
     uint32_t lastSpoke = millis();
     RoundResult result = talkRound(false);
     while (!endRequested && !saidGoodbye && result != RoundResult::Failed) {
@@ -1014,10 +1204,11 @@ void loop() {
     }
     Serial.printf("CONVERSATION_DONE ended_by_touch=%d goodbye=%d\n", endRequested ? 1 : 0, saidGoodbye ? 1 : 0);
     setLed(LedState::Thinking);
-    summarizeConversation();
+    if (!forgetRequested || !askToForget()) { updateMemory(); }
     setLed(LedState::Idle);
     touchCount = 0;
     touchHeld = true;  // a finger still on the tape must be lifted before the next touch
+    touchStartedAt = 0;
   }
   M5.delay(10);
 }
