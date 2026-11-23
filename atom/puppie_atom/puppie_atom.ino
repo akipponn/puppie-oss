@@ -31,6 +31,8 @@ static constexpr int TTS_ATTEMPTS = 3;
 
 static const char API_HOST[] = "api.openai.com";
 static const char GPT_MODEL[] = "gpt-5.4-nano";
+// Only for the saved note (once per conversation): nano dropped old facts when merging (2026-11-22).
+static const char MEMORY_MODEL[] = "gpt-5.4-mini";
 static const char TTS_MODEL[] = "gpt-4o-mini-tts";
 static const char TTS_VOICE[] = "marin";
 static const char TTS_INSTRUCTIONS[] = "やさしく、あたたかい声で話してください。親しい友だちと話すような、明るい話し方で、テンポよく、ふつうの会話の速さで。";
@@ -806,7 +808,7 @@ static const char MEMORY_PROMPT[] =
     "天気の数字のようにすぐ古くなることや、もう終わった予定は消してください。同じことは一度だけ。"
     "前のメモの事実は、今日の会話で変わった、または終わったとはっきりわかるときだけ書き直し、それ以外はそのまま残してください。"
     "新しい話が前の事実の例外や条件なら、消さずに一行にまとめてください（例：「ふだんはお肉を食べない。外食では食べることもある」）。"
-    "全部で200文字以内。覚えることがなければ前のメモをそのまま返してください。箇条書きだけを返してください。";
+    "全部で300文字以内。覚えることがなければ前のメモをそのまま返してください。箇条書きだけを返してください。";
 static constexpr size_t MEMORY_MAX_BYTES = 2000;  // a flash string can hold about 4000 bytes
 static Preferences memoryStore;
 
@@ -832,7 +834,7 @@ void updateMemory() {
   for (int i = 0; i < historyCount; i++) {
     input += String("人: ") + historyUser[i] + "\nPuppie: " + historyReply[i] + "\n";
   }
-  String request = String("{\"model\":\"") + GPT_MODEL + "\",\"max_completion_tokens\":1000,\"messages\":["
+  String request = String("{\"model\":\"") + MEMORY_MODEL + "\",\"max_completion_tokens\":2000,\"messages\":["
                    "{\"role\":\"system\",\"content\":\"" + jsonEscaped(MEMORY_PROMPT) + "\"},"
                    "{\"role\":\"user\",\"content\":\"" + jsonEscaped(input) + "\"}]}";
   String memory = postChat(request, "MEMORY");
