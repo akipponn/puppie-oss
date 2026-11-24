@@ -75,7 +75,7 @@ The Serial Monitor (115200 baud) shows what Puppie heard and answered.
 
 You can change Puppie's settings from a smartphone or a computer, without flashing again: the Wi-Fi, the OpenAI API key, the home town for the weather, and how long Puppie keeps listening when nobody speaks.
 
-1. Keep the button on top pressed, and press the reset button on the side briefly (or plug in USB while you hold the button). The LED stays white without fading; then let go of the button. (White and fading means it started normally: try again.)
+1. Unplug USB. Keep the button on top pressed and plug USB in again. (Or keep the button pressed and press the reset button on the side briefly.) The LED stays white without fading; then let go of the button. Puppie only checks the button in the moment it starts, so it must already be pressed then. (White and fading means it started normally: try again.)
 2. On your smartphone or computer, join the Wi-Fi **Puppie-Setup** (no password). The settings page opens by itself. If it does not, open `http://192.168.4.1` in the browser.
 3. Change what you want and tap **Save**. The Atom restarts and uses the new settings.
 
