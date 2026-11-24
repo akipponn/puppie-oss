@@ -26,11 +26,13 @@ A smaller Puppie: the same conversation as the Raspberry Pi version, on an M5Sta
 
 ## Add your keys
 
-In the `puppie_atom` folder, copy `secrets.h.example` to `secrets.h` and fill in your OpenAI API key and your Wi-Fi name and password. The Atom only uses 2.4 GHz Wi-Fi.
+You need your own OpenAI API key (https://platform.openai.com/api-keys). The easiest way: flash the Atom as it is, and then enter the key and your Wi-Fi on the [settings page](#settings-page) from your smartphone or computer. Copy the key first, so you can paste it there.
 
-`PUPPIE_LANGUAGE` sets the language of Puppie's few fixed sentences (like "Shall I forget everything?"): `"de"`, `"en"` or `"ja"`. Without it, they are in German.
+Or put them into a file before flashing: in the `puppie_atom` folder, copy `secrets.h.example` to `secrets.h` and fill in your OpenAI API key and your Wi-Fi name and password. The Atom only uses 2.4 GHz Wi-Fi. Values from the settings page win over `secrets.h`.
 
-`secrets.h` is not in git, so your keys stay on your computer. But they are also written into the Atom when you flash it: if you give the Atom to someone else, [erase it](#erase-everything) first.
+`PUPPIE_LANGUAGE` (in `secrets.h`) sets the language of Puppie's few fixed sentences (like "Shall I forget everything?"): `"de"`, `"en"` or `"ja"`. Without it, they are in German.
+
+`secrets.h` is not in git, so your keys stay on your computer. But keys from `secrets.h` or the settings page are also kept in the Atom: if you give the Atom to someone else, [erase it](#erase-everything) first.
 
 ## Flash
 
@@ -61,7 +63,7 @@ Touch the copper tape (or press the button) and speak. The LED shows what is hap
 | green | listening |
 | blue, fading | thinking |
 | blue | speaking |
-| red | something went wrong |
+| red | something went wrong (also: no API key yet, see [Settings page](#settings-page)) |
 | white | setup mode (see [Settings page](#settings-page)) |
 | off | waiting for a touch |
 
@@ -71,19 +73,20 @@ The Serial Monitor (115200 baud) shows what Puppie heard and answered.
 
 ## Settings page
 
-You can change Puppie's settings from a smartphone or a computer, without flashing again: the Wi-Fi, the home town for the weather, and how long Puppie keeps listening when nobody speaks.
+You can change Puppie's settings from a smartphone or a computer, without flashing again: the Wi-Fi, the OpenAI API key, the home town for the weather, and how long Puppie keeps listening when nobody speaks.
 
-1. Keep the button on top pressed, and press the reset button on the side briefly (or plug in USB while you hold the button). The LED stays white without fading; then let go of the button. (White and fading means it started normally: try again.)
+1. Unplug USB. Keep the button on top pressed and plug USB in again. (Or keep the button pressed and press the reset button on the side briefly.) The LED stays white without fading; then let go of the button. Puppie only checks the button in the moment it starts, so it must already be pressed then. (White and fading means it started normally: try again.)
 2. On your smartphone or computer, join the Wi-Fi **Puppie-Setup** (no password). The settings page opens by itself. If it does not, open `http://192.168.4.1` in the browser.
 3. Change what you want and tap **Save**. The Atom restarts and uses the new settings.
 
 | Setting | Notes |
 |---|---|
 | Wi-Fi name and password | 2.4 GHz only. Leave the password empty to keep the saved one |
+| OpenAI API key | The page shows only the last 4 characters of a saved key. Leave it empty to keep it |
 | Home town | For the weather, e.g. `Leipzig` or `Tokyo` (Latin letters are safest). Empty: Leipzig |
 | Seconds of silence | Puppie stops listening after this time, 10 to 600 (default 30) |
 
-The settings are kept in flash. The Wi-Fi from the page is used instead of `WIFI_NAME` / `WIFI_PASSWORD` in `secrets.h`. Puppie-Setup has no password, so only use setup mode for the few minutes you need it.
+The settings are kept in flash. The Wi-Fi and key from the page are used instead of the ones in `secrets.h`. Puppie-Setup has no password, so only use setup mode for the few minutes you need it.
 
 If the page does not open by itself even though you are connected: your device may remember Puppie-Setup from an earlier time. Open `http://192.168.4.1` in the browser, or forget Puppie-Setup in your Wi-Fi settings and join it again.
 
@@ -111,7 +114,6 @@ If it cannot connect, hold the reset button for about 2 seconds first (as in [Fl
 
 These are planned (see the main README for the Pi version, which already has them):
 
-- The API key on the settings page (now it is in `secrets.h`)
 - Seeing the saved note (and forgetting it) on that settings page
 
 ## Safety and privacy

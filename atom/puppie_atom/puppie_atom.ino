@@ -8,7 +8,19 @@
 #include <LittleFS.h>
 #include <WebServer.h>
 #include <DNSServer.h>
-#include "secrets.h"  // copy secrets.h.example to secrets.h and fill it in
+// secrets.h is optional: everything in it can also be set on the settings page (see runSetup).
+#if __has_include("secrets.h")
+#include "secrets.h"
+#endif
+#ifndef OPENAI_API_KEY
+#define OPENAI_API_KEY ""
+#endif
+#ifndef WIFI_NAME
+#define WIFI_NAME ""
+#endif
+#ifndef WIFI_PASSWORD
+#define WIFI_PASSWORD ""
+#endif
 
 static constexpr uint32_t SAMPLE_RATE = 16000;
 static constexpr size_t RECORD_SECONDS = 10;  // the longest one recording can be
@@ -71,6 +83,7 @@ static uint8_t* body = nullptr;
 static uint8_t* replyAudio = nullptr;
 static uint32_t lastStatus = 0;
 static NetworkClientSecure api;
+static String apiKey;  // from the settings page, else OPENAI_API_KEY in secrets.h
 static bool speakWhileReading = false;
 static size_t queuedBytes = 0;
 static uint32_t firstSoundAt = 0;
@@ -561,7 +574,7 @@ String transcribe() {
                "Authorization: Bearer %s\r\n"
                "Content-Type: multipart/form-data; boundary=%s\r\n"
                "Content-Length: %u\r\n\r\n",
-               API_HOST, OPENAI_API_KEY, BOUNDARY, (unsigned)bodyBytes());
+               API_HOST, apiKey.c_str(), BOUNDARY, (unsigned)bodyBytes());
     if (!sendAll()) {
       api.stop();
       continue;
@@ -863,7 +876,7 @@ String postChat(const String& request, const char* label) {
                "Authorization: Bearer %s\r\n"
                "Content-Type: application/json\r\n"
                "Content-Length: %u\r\n\r\n",
-               API_HOST, OPENAI_API_KEY, (unsigned)request.length());
+               API_HOST, apiKey.c_str(), (unsigned)request.length());
     api.print(request);
     uint32_t sent = millis();
 
@@ -973,7 +986,7 @@ size_t speak(const String& text) {
                "Authorization: Bearer %s\r\n"
                "Content-Type: application/json\r\n"
                "Content-Length: %u\r\n\r\n",
-               API_HOST, OPENAI_API_KEY, (unsigned)request.length());
+               API_HOST, apiKey.c_str(), (unsigned)request.length());
     api.print(request);
 
     int code = 0;
@@ -1244,6 +1257,19 @@ void loadWifi(String& name, String& password) {
   }
 }
 
+String loadApiKey() {
+  Preferences store;
+  store.begin("puppie", true);
+  String key = store.getString("api_key", "");
+  store.end();
+  return key.length() ? key : String(OPENAI_API_KEY);
+}
+
+// Only the end of the key, so the page and the log never show the whole key.
+String keyHint(const String& key) {
+  return key.length() > 8 ? "…" + key.substring(key.length() - 4) : String("");
+}
+
 String htmlEscape(const String& text) {
   String out;
   for (char c : text) {
@@ -1260,7 +1286,7 @@ static constexpr int IDLE_MIN_SEC = 10;
 static constexpr int IDLE_MAX_SEC = 600;
 
 String setupPage(const String& networks, const String& wifiName, const String& city, int idleSec,
-                 const String& message) {
+                 const String& keyNow, const String& message) {
   String page =
       "<!doctype html><html><head><meta charset=\"utf-8\">"
       "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>Puppie setup</title>"
@@ -1279,6 +1305,12 @@ String setupPage(const String& networks, const String& wifiName, const String& c
       "autocorrect=\"off\"></label>"
       "<span class=\"hint\">Leave it empty to keep the saved password.</span>"
       "<label><input type=\"checkbox\" onclick=\"pw.type=this.checked?'text':'password'\"> show password</label>"
+      "<h2>OpenAI API key</h2>"
+      "<label>API key<input type=\"password\" name=\"key\" autocapitalize=\"off\" autocorrect=\"off\" "
+      "placeholder=\"sk-...\"></label><span class=\"hint\">" +
+      String(keyNow.length() ? "A key is saved (ends with " + htmlEscape(keyNow) + "). Leave it empty to keep it."
+                             : "No key saved yet.") +
+      "</span>"
       "<h2>Puppie</h2>"
       "<label>Home town (for the weather)<input type=\"text\" name=\"city\" placeholder=\"Leipzig\" value=\"" +
       htmlEscape(city) + "\"></label>"
@@ -1312,6 +1344,7 @@ void runSetup() {
   String currentName, currentPassword;
   loadWifi(currentName, currentPassword);
   String currentCity = loadCity();
+  String currentKey = loadApiKey();
   int currentIdle = loadIdleSec();
 
   WiFi.mode(WIFI_AP);
@@ -1327,6 +1360,9 @@ void runSetup() {
     String password = server.arg("password");
     String city = server.arg("city");
     String idleText = server.arg("idle");
+    String key = server.arg("key");
+    key.trim();
+    if (key.length() == 0) { key = currentKey; }  // keep the saved one
     name.trim();
     city.trim();
     idleText.trim();
@@ -1337,13 +1373,15 @@ void runSetup() {
       problem = "Please enter the Wi-Fi name.";
     } else if (password.length() > 63 || (password.length() > 0 && password.length() < 8)) {
       problem = "A Wi-Fi password has 8 to 63 characters (or none for an open Wi-Fi).";
+    } else if (key.length() < 20 || key.length() > 300 || key.indexOf(' ') >= 0) {
+      problem = "Please enter your OpenAI API key (it starts with sk-).";
     } else if (city.length() > 60) {
       problem = "The town name is too long.";
     } else if (idleSec < IDLE_MIN_SEC || idleSec > IDLE_MAX_SEC) {
       problem = "Please choose " + String(IDLE_MIN_SEC) + " to " + String(IDLE_MAX_SEC) + " seconds.";
     }
     if (problem.length()) {
-      server.send(200, "text/html; charset=utf-8", setupPage(networks, name, city, idleSec, problem));
+      server.send(200, "text/html; charset=utf-8", setupPage(networks, name, city, idleSec, keyHint(currentKey), problem));
       return;
     }
     Preferences store;
@@ -1352,6 +1390,7 @@ void runSetup() {
     store.putString("wifi_pass", password);
     store.putString("city", city);
     store.putInt("idle_sec", idleSec);
+    store.putString("api_key", key);
     store.end();
     // never the password
     Serial.printf("SETUP_SAVED ok=%d wifi=%s city=%s idle=%d\n", saved ? 1 : 0, name.c_str(), city.c_str(), idleSec);
@@ -1365,7 +1404,7 @@ void runSetup() {
   });
   server.onNotFound([&]() {  // any address (also the phone's captive-portal checks) gets the page
     Serial.printf("SETUP_PAGE uri=%s\n", server.uri().c_str());
-    server.send(200, "text/html; charset=utf-8", setupPage(networks, currentName, currentCity, currentIdle, ""));
+    server.send(200, "text/html; charset=utf-8", setupPage(networks, currentName, currentCity, currentIdle, keyHint(currentKey), ""));
   });
   server.begin();
   while (true) {
@@ -1390,6 +1429,8 @@ void setup() {
   String wifiName, wifiPassword;
   loadWifi(wifiName, wifiPassword);
   idleTimeoutMs = loadIdleSec() * 1000UL;
+  apiKey = loadApiKey();
+  Serial.printf("API_KEY %s\n", apiKey.length() ? ("ends with " + keyHint(apiKey)).c_str() : "MISSING (set it on the settings page)");
   Serial.printf("WIFI_JOIN %s city=%s idle=%lus\n", wifiName.c_str(), homeCityName().c_str(), idleTimeoutMs / 1000);
   WiFi.begin(wifiName.c_str(), wifiPassword.c_str());
   WiFi.setSleep(false);
@@ -1412,7 +1453,7 @@ void setup() {
 void loop() {
   M5.update();
   bool online = WiFi.status() == WL_CONNECTED;
-  if (!body || !replyAudio) {
+  if (!body || !replyAudio || apiKey.length() == 0) {
     setLed(LedState::Error);
   } else if (!online) {
     setLed(LedState::Starting);
@@ -1425,7 +1466,7 @@ void loop() {
   }
   bool touched = wasTouched();
   bool pressed = M5.BtnA.wasPressed();
-  if (body && replyAudio && online && (touched || pressed)) {
+  if (body && replyAudio && apiKey.length() && online && (touched || pressed)) {
     // One touch starts a conversation: Puppie keeps listening after each reply on its own.
     endRequested = false;
     forgetRequested = false;
