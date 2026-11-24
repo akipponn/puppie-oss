@@ -26,7 +26,7 @@ A smaller Puppie: the same conversation as the Raspberry Pi version, on an M5Sta
 
 ## Add your keys
 
-You need your own OpenAI API key (https://platform.openai.com/api-keys). The easiest way: flash the Atom as it is, and then enter the key and your Wi-Fi on the [settings page](#settings-page) from your smartphone or computer. Copy the key first, so you can paste it there.
+You need your own OpenAI API key (https://platform.openai.com/api-keys). The easiest way: flash the Atom as it is. With no Wi-Fi and key yet, it opens the [settings page](#settings-page) by itself (white LED, Wi-Fi "Puppie-Setup"), and you enter the key and your Wi-Fi there from your smartphone or computer. Copy the key first, so you can paste it there.
 
 Or put them into a file before flashing: in the `puppie_atom` folder, copy `secrets.h.example` to `secrets.h` and fill in your OpenAI API key and your Wi-Fi name and password. The Atom only uses 2.4 GHz Wi-Fi. Values from the settings page win over `secrets.h`.
 
@@ -74,6 +74,8 @@ The Serial Monitor (115200 baud) shows what Puppie heard and answered.
 ## Settings page
 
 You can change Puppie's settings from a smartphone or a computer, without flashing again: the Wi-Fi, the OpenAI API key, the home town for the weather, and how long Puppie keeps listening when nobody speaks.
+
+The first time, when no Wi-Fi or API key is set yet, setup mode starts by itself: go on with step 2. Later, to change something:
 
 1. Unplug USB. Keep the button on top pressed and plug USB in again. (Or keep the button pressed and press the reset button on the side briefly.) The LED stays white without fading; then let go of the button. Puppie only checks the button in the moment it starts, so it must already be pressed then. (White and fading means it started normally: try again.)
 2. On your smartphone or computer, join the Wi-Fi **Puppie-Setup** (no password). The settings page opens by itself. If it does not, open `http://192.168.4.1` in the browser.
