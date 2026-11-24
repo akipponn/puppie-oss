@@ -2,7 +2,7 @@
 
 A smaller Puppie: the same conversation as the Raspberry Pi version, on an M5Stack Atom VoiceS3R (an ESP32-S3 with a microphone, a speaker and a button, about 24 × 24 mm).
 
-**Status:** experimental. It talks in Japanese for now, and some things are still fixed in the code (see [Not yet](#not-yet)). The Raspberry Pi version in the [main README](../README.md) is the complete one.
+**Status:** experimental. It talks in Japanese for now. The Raspberry Pi version in the [main README](../README.md) is the complete one.
 
 ## Parts
 
@@ -112,11 +112,6 @@ esptool --port /dev/cu.usbmodem1101 erase_flash
 ```
 
 If it cannot connect, hold the reset button for about 2 seconds first (as in [Flash](#flash), step 3). After this the Atom does nothing until you flash it again.
-
-## Not yet
-
-These are planned (see the main README for the Pi version, which already has them):
-
 
 ## Safety and privacy
 
