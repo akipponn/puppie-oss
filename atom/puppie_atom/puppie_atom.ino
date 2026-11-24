@@ -6,6 +6,8 @@
 #include <NetworkClientSecure.h>
 #include <Preferences.h>
 #include <LittleFS.h>
+#include <WebServer.h>
+#include <DNSServer.h>
 #include "secrets.h"  // copy secrets.h.example to secrets.h and fill it in
 
 static constexpr uint32_t SAMPLE_RATE = 16000;
@@ -81,7 +83,7 @@ static uint32_t lastInterruptCheck = 0;
 // The RGB LED Unit on the Grove port (3 LEDs, data on GPIO2) shows what Puppie is doing,
 // with the same colours as the Pi version. A small task of its own keeps it fading even while
 // the main loop waits for the network.
-enum class LedState { Starting, Idle, Listening, Thinking, Speaking, Error };
+enum class LedState { Starting, Idle, Listening, Thinking, Speaking, Error, Setup };
 static constexpr uint8_t LED_PIN = 2;
 static constexpr int LED_COUNT = 3;
 static constexpr uint8_t LED_BRIGHTNESS = 40;  // 0-255
@@ -127,6 +129,7 @@ void ledTask(void*) {
       case LedState::Thinking: b = pulse; break;
       case LedState::Speaking: b = LED_BRIGHTNESS; break;
       case LedState::Error: r = LED_BRIGHTNESS; break;
+      case LedState::Setup: r = g = b = LED_BRIGHTNESS; break;
       case LedState::Idle: break;
     }
     uint32_t colour = (r << 16) | (g << 8) | b;
@@ -1143,6 +1146,120 @@ RoundResult talkRound(bool followUp) {
   return RoundResult::Failed;
 }
 
+// Setup mode: hold the button while the Atom starts. It opens its own Wi-Fi "Puppie-Setup", and a
+// phone that joins it is shown a page for the home Wi-Fi. That Wi-Fi is saved in flash and used from
+// the next start on, instead of WIFI_NAME / WIFI_PASSWORD in secrets.h.
+static const char* SETUP_AP_NAME = "Puppie-Setup";
+static const IPAddress SETUP_IP(192, 168, 4, 1);
+
+void loadWifi(String& name, String& password) {
+  Preferences store;
+  store.begin("puppie", true);
+  name = store.getString("wifi_name", "");
+  password = store.getString("wifi_pass", "");
+  store.end();
+  if (name.length() == 0) {
+    name = WIFI_NAME;
+    password = WIFI_PASSWORD;
+  }
+}
+
+String htmlEscape(const String& text) {
+  String out;
+  for (char c : text) {
+    if (c == '&') out += "&amp;";
+    else if (c == '<') out += "&lt;";
+    else if (c == '>') out += "&gt;";
+    else if (c == '"') out += "&quot;";
+    else out += c;
+  }
+  return out;
+}
+
+String setupPage(const String& networks, const String& currentName, const String& message) {
+  String page =
+      "<!doctype html><html><head><meta charset=\"utf-8\">"
+      "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>Puppie setup</title>"
+      "<style>body{font-family:sans-serif;margin:2em 1em;background:#fdf8f0;color:#333;max-width:30em}"
+      "label{display:block;margin-top:1.2em}input[type=text],input[type=password]{width:100%;font-size:1.1em;"
+      "padding:.4em;box-sizing:border-box}button{margin-top:1.5em;font-size:1.1em;padding:.5em 1.5em}"
+      ".msg{color:#b00}</style></head><body><h1>Puppie setup</h1>";
+  if (message.length()) { page += "<p class=\"msg\">" + htmlEscape(message) + "</p>"; }
+  page +=
+      "<form method=\"post\" action=\"/save\">"
+      "<label>Wi-Fi name (2.4 GHz)<input type=\"text\" name=\"name\" list=\"networks\" autocapitalize=\"off\" "
+      "autocorrect=\"off\" value=\"" + htmlEscape(currentName) + "\"></label>"
+      "<datalist id=\"networks\">" + networks + "</datalist>"
+      "<label>Wi-Fi password<input type=\"password\" name=\"password\" id=\"pw\" autocapitalize=\"off\" "
+      "autocorrect=\"off\"></label>"
+      "<label><input type=\"checkbox\" onclick=\"pw.type=this.checked?'text':'password'\"> show password</label>"
+      "<button type=\"submit\">Save</button></form></body></html>";
+  return page;
+}
+
+void runSetup() {
+  setLed(LedState::Setup);
+  // Look for networks first: scanning while the Atom's own Wi-Fi is on would disturb the phone.
+  WiFi.mode(WIFI_STA);
+  int found = WiFi.scanNetworks();
+  String networks;
+  for (int i = 0; i < found; i++) {
+    String ssid = WiFi.SSID(i);
+    String option = "<option value=\"" + htmlEscape(ssid) + "\">";
+    if (ssid.length() && networks.indexOf(option) < 0) { networks += option; }
+  }
+  WiFi.scanDelete();
+  String currentName, unusedPassword;
+  loadWifi(currentName, unusedPassword);
+
+  WiFi.mode(WIFI_AP);
+  WiFi.softAPConfig(SETUP_IP, SETUP_IP, IPAddress(255, 255, 255, 0));
+  bool ok = WiFi.softAP(SETUP_AP_NAME);
+  Serial.printf("SETUP_MODE ok=%d ap=%s ip=%s networks=%d\n", ok ? 1 : 0, SETUP_AP_NAME,
+                WiFi.softAPIP().toString().c_str(), found);
+  DNSServer dns;
+  dns.start(53, "*", SETUP_IP);  // every name points to the Atom, so the phone opens the page by itself
+  WebServer server(80);
+  server.on("/save", HTTP_POST, [&]() {
+    String name = server.arg("name");
+    String password = server.arg("password");
+    name.trim();
+    String problem;
+    if (name.length() == 0 || name.length() > 32) {
+      problem = "Please enter the Wi-Fi name.";
+    } else if (password.length() > 63 || (password.length() > 0 && password.length() < 8)) {
+      problem = "A Wi-Fi password has 8 to 63 characters (or none for an open Wi-Fi).";
+    }
+    if (problem.length()) {
+      server.send(200, "text/html; charset=utf-8", setupPage(networks, name, problem));
+      return;
+    }
+    Preferences store;
+    store.begin("puppie", false);
+    bool saved = store.putString("wifi_name", name) > 0;
+    store.putString("wifi_pass", password);
+    store.end();
+    Serial.printf("SETUP_SAVED ok=%d wifi=%s\n", saved ? 1 : 0, name.c_str());  // never the password
+    server.send(200, "text/html; charset=utf-8",
+                "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" "
+                "content=\"width=device-width, initial-scale=1\"></head><body style=\"font-family:sans-serif;"
+                "margin:2em 1em;background:#fdf8f0\"><h1>Saved</h1><p>Puppie restarts now and joins \"" +
+                    htmlEscape(name) + "\". You can close this page.</p></body></html>");
+    M5.delay(1500);
+    ESP.restart();
+  });
+  server.onNotFound([&]() {  // any address (also the phone's captive-portal checks) gets the page
+    Serial.printf("SETUP_PAGE uri=%s\n", server.uri().c_str());
+    server.send(200, "text/html; charset=utf-8", setupPage(networks, currentName, ""));
+  });
+  server.begin();
+  while (true) {
+    dns.processNextRequest();
+    server.handleClient();
+    M5.delay(2);
+  }
+}
+
 void setup() {
   auto cfg = M5.config();
   M5.begin(cfg);
@@ -1150,7 +1267,15 @@ void setup() {
   M5.Speaker.end();
   xTaskCreate(ledTask, "led", 4096, nullptr, 1, nullptr);
 
-  WiFi.begin(WIFI_NAME, WIFI_PASSWORD);
+  for (int i = 0; i < 5; i++) {  // a few reads, so the button's debounce settles
+    M5.update();
+    M5.delay(10);
+  }
+  if (M5.BtnA.isPressed()) { runSetup(); }  // never comes back: saving restarts the Atom
+  String wifiName, wifiPassword;
+  loadWifi(wifiName, wifiPassword);
+  Serial.printf("WIFI_JOIN %s\n", wifiName.c_str());
+  WiFi.begin(wifiName.c_str(), wifiPassword.c_str());
   WiFi.setSleep(false);
   api.useBuiltinCACertBundle();
 

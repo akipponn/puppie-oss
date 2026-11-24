@@ -62,11 +62,22 @@ Touch the copper tape (or press the button) and speak. The LED shows what is hap
 | blue, fading | thinking |
 | blue | speaking |
 | red | something went wrong |
+| white | setup mode (see [Change the Wi-Fi](#change-the-wi-fi)) |
 | off | waiting for a touch |
 
 After a reply Puppie keeps listening, so you can just go on talking. The conversation ends after 30 seconds of silence, when you touch again, or when you say goodbye (bye, see you, good night, Tschüss, バイバイ, おやすみ …; Puppie still answers first). A touch while Puppie is speaking stops it and lets you speak.
 
 The Serial Monitor (115200 baud) shows what Puppie heard and answered.
+
+## Change the Wi-Fi
+
+You can give the Atom a new Wi-Fi from your phone, without a computer:
+
+1. Keep the button on top pressed, and press the reset button on the side briefly (or plug in USB while you hold the button). The LED stays white.
+2. On your phone, join the Wi-Fi **Puppie-Setup** (no password). A page opens by itself; if not, open `http://192.168.4.1` in the browser.
+3. Enter your Wi-Fi name (2.4 GHz) and password and tap **Save**. The Atom restarts and joins that Wi-Fi.
+
+The Wi-Fi from the page is kept in flash and used instead of `WIFI_NAME` / `WIFI_PASSWORD` in `secrets.h`. Puppie-Setup has no password, so only use setup mode for the few minutes you need it.
 
 ## Memory
 
@@ -92,7 +103,7 @@ If it cannot connect, hold the reset button for about 2 seconds first (as in [Fl
 
 These are planned (see the main README for the Pi version, which already has them):
 
-- A settings page on your phone for Wi-Fi, city and API key (now they are in `secrets.h` and in the code)
+- City and API key on the settings page (now they are in `secrets.h` and in the code)
 - The weather is always for Leipzig (`HOME_LATITUDE` / `HOME_LONGITUDE` in the code)
 - Seeing the saved note (and forgetting it) on that settings page
 
