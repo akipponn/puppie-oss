@@ -62,22 +62,30 @@ Touch the copper tape (or press the button) and speak. The LED shows what is hap
 | blue, fading | thinking |
 | blue | speaking |
 | red | something went wrong |
-| white | setup mode (see [Change the Wi-Fi](#change-the-wi-fi)) |
+| white | setup mode (see [Settings page](#settings-page)) |
 | off | waiting for a touch |
 
 After a reply Puppie keeps listening, so you can just go on talking. The conversation ends after 30 seconds of silence, when you touch again, or when you say goodbye (bye, see you, good night, Tschüss, バイバイ, おやすみ …; Puppie still answers first). A touch while Puppie is speaking stops it and lets you speak.
 
 The Serial Monitor (115200 baud) shows what Puppie heard and answered.
 
-## Change the Wi-Fi
+## Settings page
 
-You can give the Atom a new Wi-Fi from your phone, without a computer:
+You can change Puppie's settings from a smartphone or a computer, without flashing again: the Wi-Fi, the home town for the weather, and how long Puppie keeps listening when nobody speaks.
 
-1. Keep the button on top pressed, and press the reset button on the side briefly (or plug in USB while you hold the button). The LED stays white.
-2. On your phone, join the Wi-Fi **Puppie-Setup** (no password). A page opens by itself; if not, open `http://192.168.4.1` in the browser.
-3. Enter your Wi-Fi name (2.4 GHz) and password and tap **Save**. The Atom restarts and joins that Wi-Fi.
+1. Keep the button on top pressed, and press the reset button on the side briefly (or plug in USB while you hold the button). The LED stays white without fading; then let go of the button. (White and fading means it started normally: try again.)
+2. On your smartphone or computer, join the Wi-Fi **Puppie-Setup** (no password). The settings page opens by itself. If it does not, open `http://192.168.4.1` in the browser.
+3. Change what you want and tap **Save**. The Atom restarts and uses the new settings.
 
-The Wi-Fi from the page is kept in flash and used instead of `WIFI_NAME` / `WIFI_PASSWORD` in `secrets.h`. Puppie-Setup has no password, so only use setup mode for the few minutes you need it.
+| Setting | Notes |
+|---|---|
+| Wi-Fi name and password | 2.4 GHz only. Leave the password empty to keep the saved one |
+| Home town | For the weather, e.g. `Leipzig` or `Tokyo` (Latin letters are safest). Empty: Leipzig |
+| Seconds of silence | Puppie stops listening after this time, 10 to 600 (default 30) |
+
+The settings are kept in flash. The Wi-Fi from the page is used instead of `WIFI_NAME` / `WIFI_PASSWORD` in `secrets.h`. Puppie-Setup has no password, so only use setup mode for the few minutes you need it.
+
+If the page does not open by itself even though you are connected: your device may remember Puppie-Setup from an earlier time. Open `http://192.168.4.1` in the browser, or forget Puppie-Setup in your Wi-Fi settings and join it again.
 
 ## Memory
 
@@ -103,8 +111,7 @@ If it cannot connect, hold the reset button for about 2 seconds first (as in [Fl
 
 These are planned (see the main README for the Pi version, which already has them):
 
-- City and API key on the settings page (now they are in `secrets.h` and in the code)
-- The weather is always for Leipzig (`HOME_LATITUDE` / `HOME_LONGITUDE` in the code)
+- The API key on the settings page (now it is in `secrets.h`)
 - Seeing the saved note (and forgetting it) on that settings page
 
 ## Safety and privacy

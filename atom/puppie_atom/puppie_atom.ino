@@ -614,10 +614,13 @@ void rememberExchange(const String& userText, const String& reply) {
 // Weather, like the Pi's weather.py: Open-Meteo, no API key needed. The Pi version lets the LLM ask for
 // it (function calling); here, to keep it small, a weather word in what was said fetches the forecast
 // for the home town first, and it goes along with the question.
-static const char HOME_CITY[] = "ライプツィヒ";
-static constexpr float HOME_LATITUDE = 51.34f;
-static constexpr float HOME_LONGITUDE = 12.37f;
+// The home town is set on the setup page; without one, it is Leipzig. Open-Meteo's geocoding finds
+// the town's coordinates the first time the weather is asked, and they are kept in flash.
+static const char DEFAULT_CITY[] = "ライプツィヒ";
+static constexpr float DEFAULT_LATITUDE = 51.34f;
+static constexpr float DEFAULT_LONGITUDE = 12.37f;
 static const char WEATHER_HOST[] = "api.open-meteo.com";
+static const char GEOCODING_HOST[] = "geocoding-api.open-meteo.com";
 static constexpr uint32_t WEATHER_TIMEOUT_MS = 5000;
 static const char* const WEATHER_WORDS[] = {"天気", "気温", "雨", "傘", "晴れ", "雪", "寒い", "暑い", "何度", "予報"};
 
@@ -685,21 +688,31 @@ String jsonValue(const String& section, const char* key, int index) {
   return value;
 }
 
-// Returns the forecast as Japanese text for the LLM, or "" when it could not be fetched.
-String fetchWeather() {
+String urlEncoded(const String& text) {
+  String out;
+  for (uint8_t c : text) {
+    if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
+      out += (char)c;
+    } else {
+      char hex[4];
+      snprintf(hex, sizeof(hex), "%%%02X", c);
+      out += hex;
+    }
+  }
+  return out;
+}
+
+// GET https://host/path; returns the body, or "" (and logs with the label) when it did not work.
+String httpsGet(const char* host, const String& path, const char* label) {
   uint32_t start = millis();
   NetworkClientSecure client;
   client.useBuiltinCACertBundle();
-  if (!client.connect(WEATHER_HOST, 443)) {
-    Serial.printf("WEATHER_ERROR connect ms=%lu\n", millis() - start);
+  if (!client.connect(host, 443)) {
+    Serial.printf("%s_ERROR connect ms=%lu\n", label, millis() - start);
     return "";
   }
   // HTTP/1.0: the answer comes in one piece (no chunks) and the connection closes at its end.
-  client.printf("GET /v1/forecast?latitude=%.2f&longitude=%.2f&current=temperature_2m,weather_code"
-                "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"
-                "&timezone=auto&forecast_days=3 HTTP/1.0\r\n"
-                "Host: %s\r\n\r\n",
-                HOME_LATITUDE, HOME_LONGITUDE, WEATHER_HOST);
+  client.printf("GET %s HTTP/1.0\r\nHost: %s\r\n\r\n", path.c_str(), host);
   String response;
   char buffer[512];
   uint32_t deadline = millis() + WEATHER_TIMEOUT_MS;
@@ -714,10 +727,75 @@ String fetchWeather() {
   client.stop();
   int bodyAt = response.indexOf("\r\n\r\n");
   if (!response.startsWith("HTTP/1.") || response.substring(9, 12) != "200" || bodyAt < 0) {
-    Serial.printf("WEATHER_ERROR ms=%lu %.80s\n", millis() - start, response.c_str());
+    Serial.printf("%s_ERROR ms=%lu %.80s\n", label, millis() - start, response.c_str());
     return "";
   }
-  String json = response.substring(bodyAt + 4);
+  return response.substring(bodyAt + 4);
+}
+
+// The home town from the setup page ("" = not set, Leipzig).
+String loadCity() {
+  Preferences store;
+  store.begin("puppie", true);
+  String city = store.getString("city", "");
+  store.end();
+  return city;
+}
+
+String homeCityName() {
+  String city = loadCity();
+  return city.length() ? city : String(DEFAULT_CITY);
+}
+
+// Coordinates of the home town: kept in flash once found, else asked from Open-Meteo's geocoding.
+bool homeCoordinates(float& latitude, float& longitude) {
+  String city = loadCity();
+  if (city.length() == 0) {
+    latitude = DEFAULT_LATITUDE;
+    longitude = DEFAULT_LONGITUDE;
+    return true;
+  }
+  Preferences store;
+  store.begin("puppie", true);
+  bool known = store.getString("city_found", "") == city;
+  latitude = store.getFloat("city_lat", 0);
+  longitude = store.getFloat("city_lon", 0);
+  store.end();
+  if (known) { return true; }
+
+  String json = httpsGet(GEOCODING_HOST, "/v1/search?count=1&language=ja&format=json&name=" + urlEncoded(city), "GEOCODING");
+  int results = json.indexOf("\"results\":[");
+  String first = results < 0 ? "" : json.substring(results);
+  String lat = jsonValue(first, "latitude", -1);
+  String lon = jsonValue(first, "longitude", -1);
+  if (lat.length() == 0 || lon.length() == 0) {
+    Serial.printf("GEOCODING_ERROR not found: %s\n", city.c_str());
+    return false;
+  }
+  latitude = lat.toFloat();
+  longitude = lon.toFloat();
+  store.begin("puppie", false);
+  store.putFloat("city_lat", latitude);
+  store.putFloat("city_lon", longitude);
+  store.putString("city_found", city);
+  store.end();
+  Serial.printf("GEOCODING %s lat=%.2f lon=%.2f\n", city.c_str(), latitude, longitude);
+  return true;
+}
+
+// Returns the forecast as Japanese text for the LLM, or "" when it could not be fetched.
+String fetchWeather() {
+  uint32_t start = millis();
+  float latitude, longitude;
+  if (!homeCoordinates(latitude, longitude)) { return ""; }
+  char path[300];
+  snprintf(path, sizeof(path),
+           "/v1/forecast?latitude=%.2f&longitude=%.2f&current=temperature_2m,weather_code"
+           "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"
+           "&timezone=auto&forecast_days=3",
+           latitude, longitude);
+  String json = httpsGet(WEATHER_HOST, path, "WEATHER");
+  if (json.length() == 0) { return ""; }
 
   String current = jsonSection(json, "current");
   String daily = jsonSection(json, "daily");
@@ -725,7 +803,7 @@ String fetchWeather() {
     Serial.printf("WEATHER_ERROR parse %.120s\n", json.c_str());
     return "";
   }
-  String text = String(HOME_CITY) + "の天気。今: " + String((int)round(jsonValue(current, "temperature_2m", -1).toFloat())) +
+  String text = homeCityName() + "の天気。今: " + String((int)round(jsonValue(current, "temperature_2m", -1).toFloat())) +
                 "度、" + weatherName(jsonValue(current, "weather_code", -1).toInt()) + "。";
   const char* days[] = {"今日", "明日", "あさって"};
   for (int i = 0; i < 3; i++) {
@@ -756,7 +834,7 @@ String askLlm(const String& userText, bool withWeather) {
   if (withWeather) {
     String weather = fetchWeather();
     String note = weather.length() > 0
-        ? String("天気を聞かれたら、この予報をもとに短く答えてください。町を言われなければ") + HOME_CITY +
+        ? String("天気を聞かれたら、この予報をもとに短く答えてください。町を言われなければ") + homeCityName() +
               "のことです。ほかの町の天気はわからないと伝えてください。\n" + weather
         : String("天気のデータが今とれませんでした。天気を聞かれたら、今はわからないと伝えてください。");
     request += "{\"role\":\"system\",\"content\":\"" + jsonEscaped(note) + "\"},";
@@ -1118,7 +1196,9 @@ bool isGoodbye(String text) {
 // Like the Pi version: after a reply Puppie keeps listening, and ends the conversation when nobody
 // has spoken for IDLE_TIMEOUT_MS, on a goodbye word, or on a new touch / button press. The Pi waits 180 seconds
 // (PUPPIE_IDLE_TIMEOUT_SEC); 30 seconds here, since a long wait made it answer family talk (2026-11-16).
+// The setup page can change it (idleTimeoutMs, read at start).
 static constexpr uint32_t IDLE_TIMEOUT_MS = 30000;
+static uint32_t idleTimeoutMs = IDLE_TIMEOUT_MS;
 RoundResult talkRound(bool followUp) {
   setLed(LedState::Listening);
   int16_t* samples = (int16_t*)(body + START_BYTES + WAV_HEADER_BYTES);
@@ -1176,25 +1256,45 @@ String htmlEscape(const String& text) {
   return out;
 }
 
-String setupPage(const String& networks, const String& currentName, const String& message) {
+static constexpr int IDLE_MIN_SEC = 10;
+static constexpr int IDLE_MAX_SEC = 600;
+
+String setupPage(const String& networks, const String& wifiName, const String& city, int idleSec,
+                 const String& message) {
   String page =
       "<!doctype html><html><head><meta charset=\"utf-8\">"
       "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>Puppie setup</title>"
       "<style>body{font-family:sans-serif;margin:2em 1em;background:#fdf8f0;color:#333;max-width:30em}"
-      "label{display:block;margin-top:1.2em}input[type=text],input[type=password]{width:100%;font-size:1.1em;"
-      "padding:.4em;box-sizing:border-box}button{margin-top:1.5em;font-size:1.1em;padding:.5em 1.5em}"
-      ".msg{color:#b00}</style></head><body><h1>Puppie setup</h1>";
+      "label{display:block;margin-top:1.2em}input[type=text],input[type=password],input[type=number]{width:100%;"
+      "font-size:1.1em;padding:.4em;box-sizing:border-box}button{margin-top:1.5em;font-size:1.1em;padding:.5em 1.5em}"
+      "h2{font-size:1.1em;margin-top:2em}.msg{color:#b00}.hint{color:#777;font-size:.9em}</style></head>"
+      "<body><h1>Puppie setup</h1>";
   if (message.length()) { page += "<p class=\"msg\">" + htmlEscape(message) + "</p>"; }
   page +=
-      "<form method=\"post\" action=\"/save\">"
+      "<form method=\"post\" action=\"/save\"><h2>Wi-Fi</h2>"
       "<label>Wi-Fi name (2.4 GHz)<input type=\"text\" name=\"name\" list=\"networks\" autocapitalize=\"off\" "
-      "autocorrect=\"off\" value=\"" + htmlEscape(currentName) + "\"></label>"
+      "autocorrect=\"off\" value=\"" + htmlEscape(wifiName) + "\"></label>"
       "<datalist id=\"networks\">" + networks + "</datalist>"
       "<label>Wi-Fi password<input type=\"password\" name=\"password\" id=\"pw\" autocapitalize=\"off\" "
       "autocorrect=\"off\"></label>"
+      "<span class=\"hint\">Leave it empty to keep the saved password.</span>"
       "<label><input type=\"checkbox\" onclick=\"pw.type=this.checked?'text':'password'\"> show password</label>"
+      "<h2>Puppie</h2>"
+      "<label>Home town (for the weather)<input type=\"text\" name=\"city\" placeholder=\"Leipzig\" value=\"" +
+      htmlEscape(city) + "\"></label>"
+      "<span class=\"hint\">e.g. Leipzig or Tokyo (Latin letters are safest). Empty: Leipzig.</span>"
+      "<label>Stop listening after this many seconds of silence<input type=\"number\" name=\"idle\" min=\"" +
+      String(IDLE_MIN_SEC) + "\" max=\"" + String(IDLE_MAX_SEC) + "\" value=\"" + String(idleSec) + "\"></label>"
       "<button type=\"submit\">Save</button></form></body></html>";
   return page;
+}
+
+int loadIdleSec() {
+  Preferences store;
+  store.begin("puppie", true);
+  int idleSec = store.getInt("idle_sec", IDLE_TIMEOUT_MS / 1000);
+  store.end();
+  return idleSec;
 }
 
 void runSetup() {
@@ -1209,8 +1309,10 @@ void runSetup() {
     if (ssid.length() && networks.indexOf(option) < 0) { networks += option; }
   }
   WiFi.scanDelete();
-  String currentName, unusedPassword;
-  loadWifi(currentName, unusedPassword);
+  String currentName, currentPassword;
+  loadWifi(currentName, currentPassword);
+  String currentCity = loadCity();
+  int currentIdle = loadIdleSec();
 
   WiFi.mode(WIFI_AP);
   WiFi.softAPConfig(SETUP_IP, SETUP_IP, IPAddress(255, 255, 255, 0));
@@ -1223,23 +1325,36 @@ void runSetup() {
   server.on("/save", HTTP_POST, [&]() {
     String name = server.arg("name");
     String password = server.arg("password");
+    String city = server.arg("city");
+    String idleText = server.arg("idle");
     name.trim();
+    city.trim();
+    idleText.trim();
+    int idleSec = idleText.toInt();
+    if (password.length() == 0 && name == currentName) { password = currentPassword; }  // keep the saved one
     String problem;
     if (name.length() == 0 || name.length() > 32) {
       problem = "Please enter the Wi-Fi name.";
     } else if (password.length() > 63 || (password.length() > 0 && password.length() < 8)) {
       problem = "A Wi-Fi password has 8 to 63 characters (or none for an open Wi-Fi).";
+    } else if (city.length() > 60) {
+      problem = "The town name is too long.";
+    } else if (idleSec < IDLE_MIN_SEC || idleSec > IDLE_MAX_SEC) {
+      problem = "Please choose " + String(IDLE_MIN_SEC) + " to " + String(IDLE_MAX_SEC) + " seconds.";
     }
     if (problem.length()) {
-      server.send(200, "text/html; charset=utf-8", setupPage(networks, name, problem));
+      server.send(200, "text/html; charset=utf-8", setupPage(networks, name, city, idleSec, problem));
       return;
     }
     Preferences store;
     store.begin("puppie", false);
     bool saved = store.putString("wifi_name", name) > 0;
     store.putString("wifi_pass", password);
+    store.putString("city", city);
+    store.putInt("idle_sec", idleSec);
     store.end();
-    Serial.printf("SETUP_SAVED ok=%d wifi=%s\n", saved ? 1 : 0, name.c_str());  // never the password
+    // never the password
+    Serial.printf("SETUP_SAVED ok=%d wifi=%s city=%s idle=%d\n", saved ? 1 : 0, name.c_str(), city.c_str(), idleSec);
     server.send(200, "text/html; charset=utf-8",
                 "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" "
                 "content=\"width=device-width, initial-scale=1\"></head><body style=\"font-family:sans-serif;"
@@ -1250,7 +1365,7 @@ void runSetup() {
   });
   server.onNotFound([&]() {  // any address (also the phone's captive-portal checks) gets the page
     Serial.printf("SETUP_PAGE uri=%s\n", server.uri().c_str());
-    server.send(200, "text/html; charset=utf-8", setupPage(networks, currentName, ""));
+    server.send(200, "text/html; charset=utf-8", setupPage(networks, currentName, currentCity, currentIdle, ""));
   });
   server.begin();
   while (true) {
@@ -1274,7 +1389,8 @@ void setup() {
   if (M5.BtnA.isPressed()) { runSetup(); }  // never comes back: saving restarts the Atom
   String wifiName, wifiPassword;
   loadWifi(wifiName, wifiPassword);
-  Serial.printf("WIFI_JOIN %s\n", wifiName.c_str());
+  idleTimeoutMs = loadIdleSec() * 1000UL;
+  Serial.printf("WIFI_JOIN %s city=%s idle=%lus\n", wifiName.c_str(), homeCityName().c_str(), idleTimeoutMs / 1000);
   WiFi.begin(wifiName.c_str(), wifiPassword.c_str());
   WiFi.setSleep(false);
   api.useBuiltinCACertBundle();
@@ -1321,7 +1437,7 @@ void loop() {
     RoundResult result = talkRound(false);
     while (!endRequested && !saidGoodbye && result != RoundResult::Failed) {
       if (result == RoundResult::Spoke) { lastSpoke = millis(); }
-      if (millis() - lastSpoke > IDLE_TIMEOUT_MS) {
+      if (millis() - lastSpoke > idleTimeoutMs) {
         Serial.println("IDLE_TIMEOUT");
         break;
       }
