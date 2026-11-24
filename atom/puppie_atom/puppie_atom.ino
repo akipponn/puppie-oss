@@ -1286,14 +1286,15 @@ static constexpr int IDLE_MIN_SEC = 10;
 static constexpr int IDLE_MAX_SEC = 600;
 
 String setupPage(const String& networks, const String& wifiName, const String& city, int idleSec,
-                 const String& keyNow, const String& message) {
+                 const String& keyNow, const String& note, const String& message) {
   String page =
       "<!doctype html><html><head><meta charset=\"utf-8\">"
       "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>Puppie setup</title>"
       "<style>body{font-family:sans-serif;margin:2em 1em;background:#fdf8f0;color:#333;max-width:30em}"
       "label{display:block;margin-top:1.2em}input[type=text],input[type=password],input[type=number]{width:100%;"
       "font-size:1.1em;padding:.4em;box-sizing:border-box}button{margin-top:1.5em;font-size:1.1em;padding:.5em 1.5em}"
-      "h2{font-size:1.1em;margin-top:2em}.msg{color:#b00}.hint{color:#777;font-size:.9em}</style></head>"
+      "h2{font-size:1.1em;margin-top:2em}.msg{color:#b00}.hint{color:#777;font-size:.9em}"
+      ".note{white-space:pre-wrap;background:#fff;padding:.6em;border-radius:6px}</style></head>"
       "<body><h1>Puppie setup</h1>";
   if (message.length()) { page += "<p class=\"msg\">" + htmlEscape(message) + "</p>"; }
   page +=
@@ -1317,7 +1318,15 @@ String setupPage(const String& networks, const String& wifiName, const String& c
       "<span class=\"hint\">e.g. Leipzig or Tokyo (Latin letters are safest). Empty: Leipzig.</span>"
       "<label>Stop listening after this many seconds of silence<input type=\"number\" name=\"idle\" min=\"" +
       String(IDLE_MIN_SEC) + "\" max=\"" + String(IDLE_MAX_SEC) + "\" value=\"" + String(idleSec) + "\"></label>"
-      "<button type=\"submit\">Save</button></form></body></html>";
+      "<button type=\"submit\">Save</button></form>"
+      "<h2>What Puppie remembers</h2>";
+  if (note.length()) {
+    page += "<p class=\"note\">" + htmlEscape(note) + "</p>"
+            "<form method=\"post\" action=\"/forget\"><button type=\"submit\">Forget it</button></form>";
+  } else {
+    page += "<p class=\"hint\">Nothing yet.</p>";
+  }
+  page += "</body></html>";
   return page;
 }
 
@@ -1381,7 +1390,7 @@ void runSetup() {
       problem = "Please choose " + String(IDLE_MIN_SEC) + " to " + String(IDLE_MAX_SEC) + " seconds.";
     }
     if (problem.length()) {
-      server.send(200, "text/html; charset=utf-8", setupPage(networks, name, city, idleSec, keyHint(currentKey), problem));
+      server.send(200, "text/html; charset=utf-8", setupPage(networks, name, city, idleSec, keyHint(currentKey), loadMemory(), problem));
       return;
     }
     Preferences store;
@@ -1402,9 +1411,29 @@ void runSetup() {
     M5.delay(1500);
     ESP.restart();
   });
+  // Forgetting the note: first a page that asks, then the second button really erases it.
+  server.on("/forget", HTTP_POST, [&]() {
+    String head =
+        "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" "
+        "content=\"width=device-width, initial-scale=1\"></head><body style=\"font-family:sans-serif;"
+        "margin:2em 1em;background:#fdf8f0\">";
+    if (server.arg("sure") == "yes") {
+      clearMemory();
+      server.send(200, "text/html; charset=utf-8",
+                  head + "<h1>Forgotten</h1><p>Puppie does not remember anything about you now.</p>"
+                         "<p><a href=\"/\">Back to the settings</a></p></body></html>");
+    } else {
+      server.send(200, "text/html; charset=utf-8",
+                  head + "<h1>Forget everything?</h1><p>Puppie will not remember anything about you. "
+                         "This cannot be undone.</p><form method=\"post\" action=\"/forget\">"
+                         "<input type=\"hidden\" name=\"sure\" value=\"yes\">"
+                         "<button type=\"submit\" style=\"font-size:1.1em;padding:.5em 1.5em\">Yes, forget it</button>"
+                         "</form><p><a href=\"/\">No, keep it</a></p></body></html>");
+    }
+  });
   server.onNotFound([&]() {  // any address (also the phone's captive-portal checks) gets the page
     Serial.printf("SETUP_PAGE uri=%s\n", server.uri().c_str());
-    server.send(200, "text/html; charset=utf-8", setupPage(networks, currentName, currentCity, currentIdle, keyHint(currentKey), ""));
+    server.send(200, "text/html; charset=utf-8", setupPage(networks, currentName, currentCity, currentIdle, keyHint(currentKey), loadMemory(), ""));
   });
   server.begin();
   while (true) {

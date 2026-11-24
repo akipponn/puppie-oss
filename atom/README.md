@@ -2,7 +2,7 @@
 
 A smaller Puppie: the same conversation as the Raspberry Pi version, on an M5Stack Atom VoiceS3R (an ESP32-S3 with a microphone, a speaker and a button, about 24 × 24 mm).
 
-**Status:** experimental. It talks in Japanese for now, and some things are still fixed in the code (see [Not yet](#not-yet)). The Raspberry Pi version in the [main README](../README.md) is the complete one.
+**Status:** experimental. It talks in Japanese for now. The Raspberry Pi version in the [main README](../README.md) is the complete one.
 
 ## Parts
 
@@ -87,6 +87,7 @@ The first time, when no Wi-Fi or API key is set yet, setup mode starts by itself
 | OpenAI API key | The page shows only the last 4 characters of a saved key. Leave it empty to keep it |
 | Home town | For the weather, e.g. `Leipzig` or `Tokyo` (Latin letters are safest). Empty: Leipzig |
 | Seconds of silence | Puppie stops listening after this time, 10 to 600 (default 30) |
+| What Puppie remembers | Shown at the bottom, with a button to forget it (see [Memory](#memory)) |
 
 The settings are kept in flash. The Wi-Fi and key from the page are used instead of the ones in `secrets.h`. Puppie-Setup has no password, so only use setup mode for the few minutes you need it.
 
@@ -98,7 +99,7 @@ When a conversation ends, Puppie writes a short note about you: facts you told i
 
 **To make Puppie forget:** touch, and keep your finger on the touch spot for 5 seconds. Puppie stops the conversation and asks whether to forget everything. Touch once more to say yes. If you do not touch within 10 seconds, the note is kept. Only the note is erased: Wi-Fi, keys and everything else stay as they are.
 
-You cannot see the note on the Atom yet (only in the Serial Monitor, as `MEMORY_RESULT`). Seeing it on a settings page is planned.
+**To see the note:** open the [settings page](#settings-page). It shows what Puppie remembers at the bottom, with a **Forget it** button (it asks once more before it erases the note).
 
 Puppie's fixed sentences (the question above and its answers) are made by OpenAI the first time they are needed and then kept in flash too, so after that they play at once, also without internet.
 
@@ -111,12 +112,6 @@ esptool --port /dev/cu.usbmodem1101 erase_flash
 ```
 
 If it cannot connect, hold the reset button for about 2 seconds first (as in [Flash](#flash), step 3). After this the Atom does nothing until you flash it again.
-
-## Not yet
-
-These are planned (see the main README for the Pi version, which already has them):
-
-- Seeing the saved note (and forgetting it) on that settings page
 
 ## Safety and privacy
 
