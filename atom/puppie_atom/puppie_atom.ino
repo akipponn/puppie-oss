@@ -1430,6 +1430,12 @@ void setup() {
   loadWifi(wifiName, wifiPassword);
   idleTimeoutMs = loadIdleSec() * 1000UL;
   apiKey = loadApiKey();
+  // Nothing set up yet (a new kit, flashed without secrets.h, or with the example values): open the
+  // settings page right away, so the button is not needed the first time.
+  if (wifiName.length() == 0 || wifiName == "your-wifi-name" || apiKey.length() < 20) {
+    Serial.printf("NOT_SET_UP wifi=%d key=%d\n", wifiName.length() > 0 ? 1 : 0, apiKey.length() >= 20 ? 1 : 0);
+    runSetup();
+  }
   Serial.printf("API_KEY %s\n", apiKey.length() ? ("ends with " + keyHint(apiKey)).c_str() : "MISSING (set it on the settings page)");
   Serial.printf("WIFI_JOIN %s city=%s idle=%lus\n", wifiName.c_str(), homeCityName().c_str(), idleTimeoutMs / 1000);
   WiFi.begin(wifiName.c_str(), wifiPassword.c_str());
