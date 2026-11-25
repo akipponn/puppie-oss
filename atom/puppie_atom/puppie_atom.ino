@@ -755,6 +755,19 @@ String loadCity() {
   return city;
 }
 
+// From the setup page, sent with every conversation and never changed by Puppie:
+// "About you" (about_me): what the owner wrote about themselves (the note can drop old facts, 2026-11-24).
+// "About Puppie" (about_puppie): what the owner wrote about Puppie, added to its character.
+static constexpr size_t ABOUT_MAX_BYTES = 600;  // each, about 200 Japanese characters
+
+String loadAbout(const char* name) {
+  Preferences store;
+  store.begin("puppie", true);
+  String text = store.getString(name, "");
+  store.end();
+  return text;
+}
+
 String homeCityName() {
   String city = loadCity();
   return city.length() ? city : String(DEFAULT_CITY);
@@ -835,12 +848,24 @@ String fetchWeather() {
 
 // The saved note (see updateMemory below), read from flash when a conversation starts.
 static String conversationMemory;
+static String conversationAboutMe;      // "About you", read from flash when a conversation starts
+static String conversationAboutPuppie;  // "About Puppie", the same
+static const char ABOUT_ME_INTRO[] =
+    "話している人が自分で書いた自己紹介です。役に立つときだけ、自然に使ってください。\n";
+static const char ABOUT_PUPPIE_INTRO[] =
+    "あなた（Puppie）について、持ち主が書いたことです。あなたの性格や話し方として大切にしてください。\n";
 static const char MEMORY_NOTE_INTRO[] =
     "前に話したときのメモです。役に立つときだけ、自然に使ってください。メモがあることは言わなくてかまいません。\n";
 
 String askLlm(const String& userText, bool withWeather) {
   String request = String("{\"model\":\"") + GPT_MODEL + "\",\"max_completion_tokens\":1000,\"messages\":["
                    "{\"role\":\"system\",\"content\":\"" + jsonEscaped(PUPPIE_SETTING_TEXT) + "\"},";
+  if (conversationAboutPuppie.length() > 0) {
+    request += "{\"role\":\"system\",\"content\":\"" + jsonEscaped(String(ABOUT_PUPPIE_INTRO) + conversationAboutPuppie) + "\"},";
+  }
+  if (conversationAboutMe.length() > 0) {
+    request += "{\"role\":\"system\",\"content\":\"" + jsonEscaped(String(ABOUT_ME_INTRO) + conversationAboutMe) + "\"},";
+  }
   if (conversationMemory.length() > 0) {
     request += "{\"role\":\"system\",\"content\":\"" + jsonEscaped(String(MEMORY_NOTE_INTRO) + conversationMemory) + "\"},";
   }
@@ -1286,12 +1311,12 @@ static constexpr int IDLE_MIN_SEC = 10;
 static constexpr int IDLE_MAX_SEC = 600;
 
 String setupPage(const String& networks, const String& wifiName, const String& city, int idleSec,
-                 const String& keyNow, const String& note, const String& message) {
+                 const String& keyNow, const String& aboutMe, const String& aboutPuppie, const String& note, const String& message) {
   String page =
       "<!doctype html><html><head><meta charset=\"utf-8\">"
       "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>Puppie setup</title>"
       "<style>body{font-family:sans-serif;margin:2em 1em;background:#fdf8f0;color:#333;max-width:30em}"
-      "label{display:block;margin-top:1.2em}input[type=text],input[type=password],input[type=number]{width:100%;"
+      "label{display:block;margin-top:1.2em}input[type=text],input[type=password],input[type=number],textarea{width:100%;"
       "font-size:1.1em;padding:.4em;box-sizing:border-box}button{margin-top:1.5em;font-size:1.1em;padding:.5em 1.5em}"
       "h2{font-size:1.1em;margin-top:2em}.msg{color:#b00}.hint{color:#777;font-size:.9em}"
       ".note{white-space:pre-wrap;background:#fff;padding:.6em;border-radius:6px}</style></head>"
@@ -1318,6 +1343,13 @@ String setupPage(const String& networks, const String& wifiName, const String& c
       "<span class=\"hint\">e.g. Leipzig or Tokyo (Latin letters are safest). Empty: Leipzig.</span>"
       "<label>Stop listening after this many seconds of silence<input type=\"number\" name=\"idle\" min=\"" +
       String(IDLE_MIN_SEC) + "\" max=\"" + String(IDLE_MAX_SEC) + "\" value=\"" + String(idleSec) + "\"></label>"
+      "<h2>About Puppie</h2>"
+      "<label>What Puppie is like (its character, how it talks)<textarea name=\"about_puppie\" rows=\"4\" "
+      "placeholder=\"Puppie is a small wooden dog. It likes walks.\">" + htmlEscape(aboutPuppie) + "</textarea></label>"
+      "<h2>About you</h2>"
+      "<label>A few lines about you (the owner), for Puppie<textarea name=\"about\" rows=\"4\" "
+      "placeholder=\"I live in Leipzig. I am vegetarian.\">" + htmlEscape(aboutMe) + "</textarea></label>"
+      "<span class=\"hint\">Both are sent with every conversation. Puppie never changes them. Empty: nothing.</span>"
       "<button type=\"submit\">Save</button></form>"
       "<h2>What Puppie remembers</h2>";
   if (note.length()) {
@@ -1355,6 +1387,8 @@ void runSetup() {
   String currentCity = loadCity();
   String currentKey = loadApiKey();
   int currentIdle = loadIdleSec();
+  String currentAboutMe = loadAbout("about_me");
+  String currentAboutPuppie = loadAbout("about_puppie");
 
   WiFi.mode(WIFI_AP);
   WiFi.softAPConfig(SETUP_IP, SETUP_IP, IPAddress(255, 255, 255, 0));
@@ -1370,6 +1404,10 @@ void runSetup() {
     String city = server.arg("city");
     String idleText = server.arg("idle");
     String key = server.arg("key");
+    String aboutMe = server.arg("about");
+    aboutMe.trim();
+    String aboutPuppie = server.arg("about_puppie");
+    aboutPuppie.trim();
     key.trim();
     if (key.length() == 0) { key = currentKey; }  // keep the saved one
     name.trim();
@@ -1388,9 +1426,13 @@ void runSetup() {
       problem = "The town name is too long.";
     } else if (idleSec < IDLE_MIN_SEC || idleSec > IDLE_MAX_SEC) {
       problem = "Please choose " + String(IDLE_MIN_SEC) + " to " + String(IDLE_MAX_SEC) + " seconds.";
+    } else if (aboutMe.length() > ABOUT_MAX_BYTES) {
+      problem = "\"About you\" is too long. Please make it shorter.";
+    } else if (aboutPuppie.length() > ABOUT_MAX_BYTES) {
+      problem = "\"About Puppie\" is too long. Please make it shorter.";
     }
     if (problem.length()) {
-      server.send(200, "text/html; charset=utf-8", setupPage(networks, name, city, idleSec, keyHint(currentKey), loadMemory(), problem));
+      server.send(200, "text/html; charset=utf-8", setupPage(networks, name, city, idleSec, keyHint(currentKey), aboutMe, aboutPuppie, loadMemory(), problem));
       return;
     }
     Preferences store;
@@ -1400,9 +1442,12 @@ void runSetup() {
     store.putString("city", city);
     store.putInt("idle_sec", idleSec);
     store.putString("api_key", key);
+    store.putString("about_me", aboutMe);
+    store.putString("about_puppie", aboutPuppie);
     store.end();
     // never the password
-    Serial.printf("SETUP_SAVED ok=%d wifi=%s city=%s idle=%d\n", saved ? 1 : 0, name.c_str(), city.c_str(), idleSec);
+    Serial.printf("SETUP_SAVED ok=%d wifi=%s city=%s idle=%d about_me=%u about_puppie=%u\n", saved ? 1 : 0, name.c_str(),
+                  city.c_str(), idleSec, (unsigned)aboutMe.length(), (unsigned)aboutPuppie.length());
     server.send(200, "text/html; charset=utf-8",
                 "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" "
                 "content=\"width=device-width, initial-scale=1\"></head><body style=\"font-family:sans-serif;"
@@ -1433,7 +1478,7 @@ void runSetup() {
   });
   server.onNotFound([&]() {  // any address (also the phone's captive-portal checks) gets the page
     Serial.printf("SETUP_PAGE uri=%s\n", server.uri().c_str());
-    server.send(200, "text/html; charset=utf-8", setupPage(networks, currentName, currentCity, currentIdle, keyHint(currentKey), loadMemory(), ""));
+    server.send(200, "text/html; charset=utf-8", setupPage(networks, currentName, currentCity, currentIdle, keyHint(currentKey), currentAboutMe, currentAboutPuppie, loadMemory(), ""));
   });
   server.begin();
   while (true) {
@@ -1508,7 +1553,10 @@ void loop() {
     saidGoodbye = false;
     clearHistory();
     conversationMemory = loadMemory();
-    Serial.printf("MEMORY_IN_USE bytes=%u\n", (unsigned)conversationMemory.length());
+    conversationAboutMe = loadAbout("about_me");
+    conversationAboutPuppie = loadAbout("about_puppie");
+    Serial.printf("MEMORY_IN_USE bytes=%u about_me=%u about_puppie=%u\n", (unsigned)conversationMemory.length(),
+                  (unsigned)conversationAboutMe.length(), (unsigned)conversationAboutPuppie.length());
     uint32_t lastSpoke = millis();
     RoundResult result = talkRound(false);
     while (!endRequested && !saidGoodbye && result != RoundResult::Failed) {
