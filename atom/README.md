@@ -89,6 +89,7 @@ The first time, when no Wi-Fi or API key is set yet, setup mode starts by itself
 | Seconds of silence | Puppie stops listening after this time, 10 to 600 (default 30) |
 | About Puppie | A few lines about Puppie: its character, how it talks. Added to Puppie's own character. Empty: nothing |
 | About you | A few lines about you, the owner (where you live, what you eat …), see [Memory](#memory). Empty: nothing |
+| Remember conversations | On (default): Puppie keeps a note about you. Off, e.g. at events: see [Memory](#memory) |
 | What Puppie remembers | Shown at the bottom, with a button to forget it (see [Memory](#memory)) |
 
 The settings are kept in flash. The Wi-Fi and key from the page are used instead of the ones in `secrets.h`. Puppie-Setup has no password, so only use setup mode for the few minutes you need it.
@@ -102,6 +103,8 @@ When a conversation ends, Puppie writes a short note about you: facts you told i
 The note is rewritten after every conversation, so older facts can get lost. For things Puppie should always know, write them under **About you** on the [settings page](#settings-page). Puppie gets them with every conversation and never changes them. Forgetting the note does not erase About you; to remove it, empty the field and save.
 
 **To make Puppie forget:** touch, and keep your finger on the touch spot for 5 seconds. Puppie stops the conversation and asks whether to forget everything. Touch once more to say yes. If you do not touch within 10 seconds, the note is kept. Only the note is erased: Wi-Fi, keys and everything else stay as they are.
+
+**At events or workshops:** turn off **Remember conversations** on the [settings page](#settings-page), and leave About you empty. Then Puppie neither uses nor changes the note, so the next person is not greeted with the last person's stories. The note stays in flash and is used again when you turn the switch back on (or forget it first if you do not want that).
 
 **To see the note:** open the [settings page](#settings-page). It shows what Puppie remembers at the bottom, with a **Forget it** button (it asks once more before it erases the note).
 
