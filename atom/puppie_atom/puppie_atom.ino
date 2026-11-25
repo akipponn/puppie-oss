@@ -768,6 +768,17 @@ String loadAbout(const char* name) {
   return text;
 }
 
+// "Remember conversations" on the setup page (default on). Off, e.g. at events: the saved note is
+// neither sent nor updated, so the next person does not hear the last person's stories.
+// The note stays in flash and is used again when the switch is turned back on.
+bool loadRemember() {
+  Preferences store;
+  store.begin("puppie", true);
+  bool remember = store.getBool("remember", true);
+  store.end();
+  return remember;
+}
+
 String homeCityName() {
   String city = loadCity();
   return city.length() ? city : String(DEFAULT_CITY);
@@ -1311,7 +1322,8 @@ static constexpr int IDLE_MIN_SEC = 10;
 static constexpr int IDLE_MAX_SEC = 600;
 
 String setupPage(const String& networks, const String& wifiName, const String& city, int idleSec,
-                 const String& keyNow, const String& aboutMe, const String& aboutPuppie, const String& note, const String& message) {
+                 const String& keyNow, const String& aboutMe, const String& aboutPuppie, bool remember,
+                 const String& note, const String& message) {
   String page =
       "<!doctype html><html><head><meta charset=\"utf-8\">"
       "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>Puppie setup</title>"
@@ -1350,6 +1362,11 @@ String setupPage(const String& networks, const String& wifiName, const String& c
       "<label>A few lines about you (the owner), for Puppie<textarea name=\"about\" rows=\"4\" "
       "placeholder=\"I live in Leipzig. I am vegetarian.\">" + htmlEscape(aboutMe) + "</textarea></label>"
       "<span class=\"hint\">Both are sent with every conversation. Puppie never changes them. Empty: nothing.</span>"
+      "<h2>Memory</h2>"
+      "<label><input type=\"checkbox\" name=\"remember\" value=\"1\"" + String(remember ? " checked" : "") +
+      "> Remember conversations</label>"
+      "<span class=\"hint\">Off (e.g. at events): Puppie does not use or change the note below. About you and "
+      "About Puppie are still used.</span>"
       "<button type=\"submit\">Save</button></form>"
       "<h2>What Puppie remembers</h2>";
   if (note.length()) {
@@ -1408,6 +1425,7 @@ void runSetup() {
     aboutMe.trim();
     String aboutPuppie = server.arg("about_puppie");
     aboutPuppie.trim();
+    bool remember = server.hasArg("remember");
     key.trim();
     if (key.length() == 0) { key = currentKey; }  // keep the saved one
     name.trim();
@@ -1432,7 +1450,7 @@ void runSetup() {
       problem = "\"About Puppie\" is too long. Please make it shorter.";
     }
     if (problem.length()) {
-      server.send(200, "text/html; charset=utf-8", setupPage(networks, name, city, idleSec, keyHint(currentKey), aboutMe, aboutPuppie, loadMemory(), problem));
+      server.send(200, "text/html; charset=utf-8", setupPage(networks, name, city, idleSec, keyHint(currentKey), aboutMe, aboutPuppie, remember, loadMemory(), problem));
       return;
     }
     Preferences store;
@@ -1444,10 +1462,12 @@ void runSetup() {
     store.putString("api_key", key);
     store.putString("about_me", aboutMe);
     store.putString("about_puppie", aboutPuppie);
+    store.putBool("remember", remember);
     store.end();
     // never the password
-    Serial.printf("SETUP_SAVED ok=%d wifi=%s city=%s idle=%d about_me=%u about_puppie=%u\n", saved ? 1 : 0, name.c_str(),
-                  city.c_str(), idleSec, (unsigned)aboutMe.length(), (unsigned)aboutPuppie.length());
+    Serial.printf("SETUP_SAVED ok=%d wifi=%s city=%s idle=%d about_me=%u about_puppie=%u remember=%d\n", saved ? 1 : 0,
+                  name.c_str(), city.c_str(), idleSec, (unsigned)aboutMe.length(), (unsigned)aboutPuppie.length(),
+                  remember ? 1 : 0);
     server.send(200, "text/html; charset=utf-8",
                 "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" "
                 "content=\"width=device-width, initial-scale=1\"></head><body style=\"font-family:sans-serif;"
@@ -1478,7 +1498,7 @@ void runSetup() {
   });
   server.onNotFound([&]() {  // any address (also the phone's captive-portal checks) gets the page
     Serial.printf("SETUP_PAGE uri=%s\n", server.uri().c_str());
-    server.send(200, "text/html; charset=utf-8", setupPage(networks, currentName, currentCity, currentIdle, keyHint(currentKey), currentAboutMe, currentAboutPuppie, loadMemory(), ""));
+    server.send(200, "text/html; charset=utf-8", setupPage(networks, currentName, currentCity, currentIdle, keyHint(currentKey), currentAboutMe, currentAboutPuppie, loadRemember(), loadMemory(), ""));
   });
   server.begin();
   while (true) {
@@ -1552,11 +1572,12 @@ void loop() {
     forgetRequested = false;
     saidGoodbye = false;
     clearHistory();
-    conversationMemory = loadMemory();
+    bool remember = loadRemember();
+    conversationMemory = remember ? loadMemory() : String("");
     conversationAboutMe = loadAbout("about_me");
     conversationAboutPuppie = loadAbout("about_puppie");
-    Serial.printf("MEMORY_IN_USE bytes=%u about_me=%u about_puppie=%u\n", (unsigned)conversationMemory.length(),
-                  (unsigned)conversationAboutMe.length(), (unsigned)conversationAboutPuppie.length());
+    Serial.printf("MEMORY_IN_USE bytes=%u about_me=%u about_puppie=%u remember=%d\n", (unsigned)conversationMemory.length(),
+                  (unsigned)conversationAboutMe.length(), (unsigned)conversationAboutPuppie.length(), remember ? 1 : 0);
     uint32_t lastSpoke = millis();
     RoundResult result = talkRound(false);
     while (!endRequested && !saidGoodbye && result != RoundResult::Failed) {
@@ -1569,7 +1590,9 @@ void loop() {
     }
     Serial.printf("CONVERSATION_DONE ended_by_touch=%d goodbye=%d\n", endRequested ? 1 : 0, saidGoodbye ? 1 : 0);
     setLed(LedState::Thinking);
-    if (!forgetRequested || !askToForget()) { updateMemory(); }
+    if (!forgetRequested || !askToForget()) {
+      if (remember) { updateMemory(); } else { Serial.println("MEMORY_NOT_KEPT remember=0"); }
+    }
     setLed(LedState::Idle);
     touchCount = 0;
     touchHeld = true;  // a finger still on the tape must be lifted before the next touch
