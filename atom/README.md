@@ -87,6 +87,8 @@ The first time, when no Wi-Fi or API key is set yet, setup mode starts by itself
 | OpenAI API key | The page shows only the last 4 characters of a saved key. Leave it empty to keep it |
 | Home town | For the weather, e.g. `Leipzig` or `Tokyo` (Latin letters are safest). Empty: Leipzig |
 | Seconds of silence | Puppie stops listening after this time, 10 to 600 (default 30) |
+| About Puppie | A few lines about Puppie: its character, how it talks. Added to Puppie's own character. Empty: nothing |
+| About you | A few lines about you, the owner (where you live, what you eat …), see [Memory](#memory). Empty: nothing |
 | What Puppie remembers | Shown at the bottom, with a button to forget it (see [Memory](#memory)) |
 
 The settings are kept in flash. The Wi-Fi and key from the page are used instead of the ones in `secrets.h`. Puppie-Setup has no password, so only use setup mode for the few minutes you need it.
@@ -96,6 +98,8 @@ If the page does not open by itself even though you are connected: your device m
 ## Memory
 
 When a conversation ends, Puppie writes a short note about you: facts you told it about yourself, like what you do not eat or where you live. The note is kept in the Atom's flash, so it is still there after the power was off, and it goes along with the next conversations.
+
+The note is rewritten after every conversation, so older facts can get lost. For things Puppie should always know, write them under **About you** on the [settings page](#settings-page). Puppie gets them with every conversation and never changes them. Forgetting the note does not erase About you; to remove it, empty the field and save.
 
 **To make Puppie forget:** touch, and keep your finger on the touch spot for 5 seconds. Puppie stops the conversation and asks whether to forget everything. Touch once more to say yes. If you do not touch within 10 seconds, the note is kept. Only the note is erased: Wi-Fi, keys and everything else stay as they are.
 
@@ -117,4 +121,4 @@ If it cannot connect, hold the reset button for about 2 seconds first (as in [Fl
 
 The [Safety](../README.md#safety) section of the main README applies here too. Your voice and the conversation are sent to OpenAI, the same as with the Pi version (see [Privacy](../README.md#privacy)).
 
-The Atom keeps no recordings and no conversation log. It does keep the short [note about you](#memory) in its flash, and that note is sent to OpenAI with each conversation and when it is updated. If other people talk to Puppie too, tell them that Puppie remembers what they say about themselves, and how to make it forget.
+The Atom keeps no recordings and no conversation log. It does keep the short [note about you](#memory) and your About you and About Puppie texts in its flash, and both are sent to OpenAI with each conversation and when it is updated. If other people talk to Puppie too, tell them that Puppie remembers what they say about themselves, and how to make it forget.
