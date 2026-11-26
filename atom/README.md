@@ -26,7 +26,7 @@ A smaller Puppie: the same conversation as the Raspberry Pi version, on an M5Sta
 
 ## Add your keys
 
-You need your own OpenAI API key (https://platform.openai.com/api-keys). The easiest way: flash the Atom as it is. With no Wi-Fi and key yet, it opens the [settings page](#settings-page) by itself (white LED, Wi-Fi "Puppie-Setup"), and you enter the key and your Wi-Fi there from your smartphone or computer. Copy the key first, so you can paste it there.
+You need your own OpenAI API key (https://platform.openai.com/api-keys). The easiest way: flash the Atom as it is. With no Wi-Fi and key yet, it opens the [settings page](#settings-page) by itself (white LED, Wi-Fi "Puppie-Setup"), and you enter the key and your Wi-Fi there from your smartphone or computer. Put the key where you can copy it on that device first (e.g. in a note on your phone): while you are on Puppie-Setup there is no internet, and on a phone, switching apps can close the settings page.
 
 Or put them into a file before flashing: in the `puppie_atom` folder, copy `secrets.h.example` to `secrets.h` and fill in your OpenAI API key and your Wi-Fi name and password. The Atom only uses 2.4 GHz Wi-Fi. Values from the settings page win over `secrets.h`.
 
@@ -59,7 +59,7 @@ Touch the copper tape (or press the button) and speak. The LED shows what is hap
 
 | LED | Meaning |
 |---|---|
-| white, fading | starting up |
+| white, fading | starting up, joining the Wi-Fi (if it does not stop within about 30 seconds, see [below](#if-the-led-keeps-fading-white)) |
 | green | listening |
 | blue, fading | thinking |
 | blue | speaking |
@@ -69,7 +69,17 @@ Touch the copper tape (or press the button) and speak. The LED shows what is hap
 
 After a reply Puppie keeps listening, so you can just go on talking. The conversation ends after 30 seconds of silence, when you touch again, or when you say goodbye (bye, see you, good night, Tschüss, バイバイ, おやすみ …; Puppie still answers first). A touch while Puppie is speaking stops it and lets you speak.
 
-The Serial Monitor (115200 baud) shows what Puppie heard and answered.
+The Serial Monitor (115200 baud) shows what Puppie heard and answered, and how long each step took (`STATUS wifi=on/off` every 10 seconds, `ROUND_DONE until_sound=…` in milliseconds). Right after [erasing](#erase-everything), the first start shows a few `esp_littlefs ... mount failed` lines once: that is normal, Puppie then prepares its flash.
+
+### If the LED keeps fading white
+
+Puppie cannot join the Wi-Fi, and it does not react to touch until it can. Check:
+
+- the Wi-Fi password: open the [settings page](#settings-page) and type it again (it is easy to mistype on a phone),
+- that the Wi-Fi is 2.4 GHz,
+- with an iPhone hotspot: keep the Personal Hotspot screen open while Puppie starts, and turn on "Maximize Compatibility".
+
+Then press the reset button on the side briefly.
 
 ## Settings page
 
@@ -78,7 +88,7 @@ You can change Puppie's settings from a smartphone or a computer, without flashi
 The first time, when no Wi-Fi or API key is set yet, setup mode starts by itself: go on with step 2. Later, to change something:
 
 1. Unplug USB. Keep the button on top pressed and plug USB in again. (Or keep the button pressed and press the reset button on the side briefly.) The LED stays white without fading; then let go of the button. Puppie only checks the button in the moment it starts, so it must already be pressed then. (White and fading means it started normally: try again.)
-2. On your smartphone or computer, join the Wi-Fi **Puppie-Setup** (no password). The settings page opens by itself. If it does not, open `http://192.168.4.1` in the browser.
+2. On your smartphone or computer, join the Wi-Fi **Puppie-Setup** (no password). The settings page opens by itself. If it does not, open `http://192.168.4.1` in the browser. On an iPhone the browser (Safari) is the safer way anyway: the page that opens by itself closes when you switch to another app, and what you typed is lost. If Puppie-Setup does not show up or joining fails, wait a few seconds and try again.
 3. Change what you want and tap **Save**. The Atom restarts and uses the new settings.
 
 | Setting | Notes |
