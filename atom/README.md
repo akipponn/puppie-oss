@@ -77,7 +77,7 @@ Puppie cannot join the Wi-Fi, and it does not react to touch until it can. Check
 
 - the Wi-Fi password: open the [settings page](#settings-page) and type it again (it is easy to mistype on a phone),
 - that the Wi-Fi is 2.4 GHz,
-- with an iPhone hotspot: keep the Personal Hotspot screen open while Puppie starts, and turn on "Maximize Compatibility".
+- with a phone hotspot: keep the hotspot screen open while Puppie starts (some phones hide the hotspot when nobody is connected), and make sure it uses 2.4 GHz (iPhone: turn on "Maximize Compatibility"; Android: set the band to 2.4 GHz, if your phone has this setting).
 
 Then press the reset button on the side briefly.
 
