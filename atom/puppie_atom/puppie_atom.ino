@@ -1330,7 +1330,7 @@ String setupPage(const String& networks, const String& wifiName, const String& c
       "<style>body{font-family:sans-serif;margin:2em 1em;background:#fdf8f0;color:#333;max-width:30em}"
       "label{display:block;margin-top:1.2em}input[type=text],input[type=password],input[type=number],textarea{width:100%;"
       "font-size:1.1em;padding:.4em;box-sizing:border-box}button{margin-top:1.5em;font-size:1.1em;padding:.5em 1.5em}"
-      "h2{font-size:1.1em;margin-top:2em}.msg{color:#b00}.hint{color:#777;font-size:.9em}"
+      "h2{font-size:1.1em;margin-top:2em}.msg{color:#b00}.hint{display:block;color:#777;font-size:.9em;margin-top:.2em}"
       ".note{white-space:pre-wrap;background:#fff;padding:.6em;border-radius:6px}</style></head>"
       "<body><h1>Puppie setup</h1>";
   if (message.length()) { page += "<p class=\"msg\">" + htmlEscape(message) + "</p>"; }
@@ -1365,7 +1365,7 @@ String setupPage(const String& networks, const String& wifiName, const String& c
       "<h2>Memory</h2>"
       "<label><input type=\"checkbox\" name=\"remember\" value=\"1\"" + String(remember ? " checked" : "") +
       "> Remember conversations</label>"
-      "<span class=\"hint\">Off (e.g. at events): Puppie does not use or change the note below. About you and "
+      "<span class=\"hint\">Off (e.g. at events): Puppie does not use or change the note below.<br>About you and "
       "About Puppie are still used.</span>"
       "<button type=\"submit\">Save</button></form>"
       "<h2>What Puppie remembers</h2>";
