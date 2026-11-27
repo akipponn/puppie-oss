@@ -8,6 +8,8 @@ It started as the module inside KIKO, a wooden companion robot for older people 
 
 In development. Things will change, and the setup has so far only been tested on our own hardware.
 
+There is also a smaller, experimental version on the M5Stack Atom VoiceS3R: see [atom/README.md](atom/README.md).
+
 ## How it works
 
 You touch the sensor, Puppie listens, and it answers out loud. Touch it while Puppie is speaking to stop it and speak yourself; touch it while Puppie is listening to end the conversation.
