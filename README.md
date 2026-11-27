@@ -4,6 +4,12 @@ Puppie is an open-source software and hardware module that lets toys and other o
 
 It started as the module inside KIKO, a wooden companion robot for older people made by Bona Mondo, which was built around a Raspberry Pi 4. KIKO itself has since moved to a smartphone-based design. With Puppie, Akiko ([@akipponn](https://github.com/akipponn)) continues the Raspberry Pi direction of that work: the module has been made smaller (it now runs on a Raspberry Pi Zero 2 W) and is released as open source.
 
+<a href="https://www.sachsen1100.de"><img src="assets/sachsen1100-so-geht-saechsisch_gruen.png" alt="Sachsen 1100 – So geht sächsisch." height="80"></a>
+&nbsp;&nbsp;&nbsp;
+<a href="https://www.so-geht-sächsisch.de"><img src="assets/sachsen1100-zeig-dein-sachsen_gruen.png" alt="1100 – Zeig Dein Sachsen" height="80"></a>
+
+Puppie is a partner project of "So geht sächsisch." for 1100 Jahre Sachsen ([more below](#partner)).
+
 ## Status
 
 In development. Things will change, and the setup has so far only been tested on our own hardware.
